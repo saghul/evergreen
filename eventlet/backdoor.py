@@ -4,7 +4,7 @@ import errno
 from code import InteractiveConsole
 
 import eventlet
-from eventlet import hubs
+from eventlet.hub import get_hub
 from eventlet.support import greenlets, get_errno
 
 try:
@@ -21,10 +21,10 @@ class FileProxy(object):
     def __init__(self, f):
         self.f = f
 
-    def isatty(self): 
+    def isatty(self):
         return True
 
-    def flush(self): 
+    def flush(self):
         pass
 
     def write(self, *a, **kw):
@@ -103,7 +103,7 @@ def backdoor((conn, addr), locals=None):
     print "backdoor to %s:%s" % (host, port)
     fl = conn.makefile("rw")
     console = SocketConsole(fl, (host, port), locals)
-    hub = hubs.get_hub()
+    hub = get_hub()
     hub.schedule_call_global(0, console.switch)
 
 

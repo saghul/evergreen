@@ -1,6 +1,6 @@
 import os
 import sys
-from eventlet.hubs import get_hub
+from eventlet.hub import get_hub
 __import__('eventlet.green._socket_nodns')
 __socket = sys.modules['eventlet.green._socket_nodns']
 
@@ -25,8 +25,8 @@ if greendns:
     getnameinfo = greendns.getnameinfo
     __patched__ = __patched__ + ['gethostbyname_ex', 'getnameinfo']
 
-def create_connection(address, 
-                      timeout=_GLOBAL_DEFAULT_TIMEOUT, 
+def create_connection(address,
+                      timeout=_GLOBAL_DEFAULT_TIMEOUT,
                       source_address=None):
     """Connect to *address* and return the socket object.
 

@@ -1,5 +1,5 @@
 from eventlet import greenthread
-from eventlet import hubs
+from eventlet.hub import get_hub
 
 class Semaphore(object):
     """An unbounded semaphore.
@@ -68,7 +68,7 @@ class Semaphore(object):
             self._waiters.add(greenthread.getcurrent())
             try:
                 while self.counter <= 0:
-                    hubs.get_hub().switch()
+                    get_hub().switch()
             finally:
                 self._waiters.discard(greenthread.getcurrent())
         self.counter -= 1
@@ -86,7 +86,7 @@ class Semaphore(object):
         ignored"""
         self.counter += 1
         if self._waiters:
-            hubs.get_hub().schedule_call_global(0, self._do_acquire)
+            get_hub().schedule_call_global(0, self._do_acquire)
         return True
 
     def _do_acquire(self):

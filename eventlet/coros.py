@@ -4,7 +4,7 @@ import warnings
 
 import eventlet
 from eventlet import event as _event
-from eventlet import hubs
+from eventlet.hub import get_hub
 
 
 class Channel(object):
@@ -33,20 +33,20 @@ class Channel(object):
     def send(self, result=None, exc=None):
         if exc is not None and not isinstance(exc, tuple):
             exc = (exc, )
-        if eventlet.getcurrent() is hubs.get_hub().greenlet:
+        if eventlet.getcurrent() is get_hub().greenlet:
             self.items.append((result, exc))
             if self._waiters:
-                hubs.get_hub().schedule_call_global(0, self._do_switch)
+                get_hub().schedule_call_global(0, self._do_switch)
         else:
             self.items.append((result, exc))
             # note that send() does not work well with timeouts. if your timeout fires
             # after this point, the item will remain in the queue
             if self._waiters:
-                hubs.get_hub().schedule_call_global(0, self._do_switch)
+                get_hub().schedule_call_global(0, self._do_switch)
             if len(self.items) > self.max_size:
                 self._senders.add(eventlet.getcurrent())
                 try:
-                    hubs.get_hub().switch()
+                    get_hub().switch()
                 finally:
                     self._senders.discard(eventlet.getcurrent())
 
@@ -76,17 +76,17 @@ class Channel(object):
         if self.items:
             result, exc = self.items.popleft()
             if len(self.items) <= self.max_size:
-                hubs.get_hub().schedule_call_global(0, self._do_switch)
+                get_hub().schedule_call_global(0, self._do_switch)
             if exc is None:
                 return result
             else:
                 eventlet.getcurrent().throw(*exc)
         else:
             if self._senders:
-                hubs.get_hub().schedule_call_global(0, self._do_switch)
+                get_hub().schedule_call_global(0, self._do_switch)
             self._waiters.add(eventlet.getcurrent())
             try:
-                result, exc = hubs.get_hub().switch()
+                result, exc = get_hub().switch()
                 if exc is None:
                     return result
                 else:

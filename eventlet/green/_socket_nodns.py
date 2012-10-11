@@ -8,9 +8,7 @@ slurp_properties(__socket, globals(),
     ignore=__patched__, srckeys=dir(__socket))
 
 os = __import__('os')
-import sys
 import warnings
-from eventlet.hubs import get_hub
 from eventlet.greenio import GreenSocket as socket
 from eventlet.greenio import SSL as _SSL  # for exceptions
 from eventlet.greenio import _GLOBAL_DEFAULT_TIMEOUT

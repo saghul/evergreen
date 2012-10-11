@@ -8,7 +8,7 @@ import errno
 time = __import__('time')
 
 from eventlet.support import get_errno
-from eventlet.hubs import trampoline
+from eventlet.hub import trampoline
 from eventlet.greenio import set_nonblocking, GreenSocket, SOCKET_CLOSED, CONNECT_ERR, CONNECT_SUCCESS
 orig_socket = __import__('socket')
 socket = orig_socket.socket
@@ -22,20 +22,20 @@ else:
 __patched__ = ['SSLSocket', 'wrap_socket', 'sslwrap_simple']
 
 class GreenSSLSocket(__ssl.SSLSocket):
-    """ This is a green version of the SSLSocket class from the ssl module added 
+    """ This is a green version of the SSLSocket class from the ssl module added
     in 2.6.  For documentation on it, please see the Python standard
     documentation.
-    
+
     Python nonblocking ssl objects don't give errors when the other end
     of the socket is closed (they do notice when the other end is shutdown,
     though).  Any write/read operations will simply hang if the socket is
     closed from the other end.  There is no obvious fix for this problem;
     it appears to be a limitation of Python's ssl object implementation.
     A workaround is to set a reasonable timeout on the socket using
-    settimeout(), and to close/reopen the connection when a timeout 
+    settimeout(), and to close/reopen the connection when a timeout
     occurs at an unexpected juncture in the code.
     """
-    # we are inheriting from SSLSocket because its constructor calls 
+    # we are inheriting from SSLSocket because its constructor calls
     # do_handshake whose behavior we wish to override
     def __init__(self, sock, *args, **kw):
         if not isinstance(sock, GreenSocket):
@@ -44,7 +44,7 @@ class GreenSSLSocket(__ssl.SSLSocket):
         self.act_non_blocking = sock.act_non_blocking
         self._timeout = sock.gettimeout()
         super(GreenSSLSocket, self).__init__(sock.fd, *args, **kw)
-       
+
         # the superclass initializer trashes the methods so we remove
         # the local-object versions of them and let the actual class
         # methods shine through
@@ -53,13 +53,13 @@ class GreenSSLSocket(__ssl.SSLSocket):
                 delattr(self, fn)
         except AttributeError:
             pass
-       
+
     def settimeout(self, timeout):
         self._timeout = timeout
-        
+
     def gettimeout(self):
         return self._timeout
-    
+
     def setblocking(self, flag):
         if flag:
             self.act_non_blocking = False
@@ -139,7 +139,7 @@ class GreenSSLSocket(__ssl.SSLSocket):
                     if self.act_non_blocking:
                         raise
                     if get_errno(e) == errno.EWOULDBLOCK:
-                        trampoline(self, write=True, 
+                        trampoline(self, write=True,
                                    timeout=self.gettimeout(), timeout_exc=timeout_exc('timed out'))
                     if get_errno(e) in SOCKET_CLOSED:
                         return ''
@@ -162,13 +162,13 @@ class GreenSSLSocket(__ssl.SSLSocket):
                     if self.act_non_blocking:
                         raise
                     if get_errno(e) == errno.EWOULDBLOCK:
-                        trampoline(self, read=True, 
+                        trampoline(self, read=True,
                                    timeout=self.gettimeout(), timeout_exc=timeout_exc('timed out'))
                     if get_errno(e) in SOCKET_CLOSED:
                         return ''
                     raise
 
-        
+
     def recv_into (self, buffer, nbytes=None, flags=0):
         if not self.act_non_blocking:
             trampoline(self, read=True, timeout=self.gettimeout(), timeout_exc=timeout_exc('timed out'))
@@ -178,7 +178,7 @@ class GreenSSLSocket(__ssl.SSLSocket):
         if not self.act_non_blocking:
             trampoline(self, read=True, timeout=self.gettimeout(), timeout_exc=timeout_exc('timed out'))
         return super(GreenSSLSocket, self).recvfrom(addr, buflen, flags)
-        
+
     def recvfrom_into (self, buffer, nbytes=None, flags=0):
         if not self.act_non_blocking:
             trampoline(self, read=True, timeout=self.gettimeout(), timeout_exc=timeout_exc('timed out'))
@@ -188,7 +188,7 @@ class GreenSSLSocket(__ssl.SSLSocket):
         return GreenSocket(self._call_trampolining(
                 super(GreenSSLSocket, self).unwrap))
 
-    def do_handshake(self):    
+    def do_handshake(self):
         """Perform a TLS/SSL handshake."""
         return self._call_trampolining(
             super(GreenSSLSocket, self).do_handshake)
@@ -218,7 +218,7 @@ class GreenSSLSocket(__ssl.SSLSocket):
                         real_connect(self, addr)
                     except orig_socket.error, exc:
                         if get_errno(exc) in CONNECT_ERR:
-                            trampoline(self, write=True, 
+                            trampoline(self, write=True,
                                        timeout=end-time.time(), timeout_exc=timeout_exc('timed out'))
                         elif get_errno(exc) in CONNECT_SUCCESS:
                             return
@@ -226,7 +226,7 @@ class GreenSSLSocket(__ssl.SSLSocket):
                             raise
                     if time.time() >= end:
                         raise timeout_exc('timed out')
-    
+
 
     def connect(self, addr):
         """Connects to remote ADDR, and then wraps the connection in
@@ -279,7 +279,7 @@ class GreenSSLSocket(__ssl.SSLSocket):
 
     def dup(self):
         raise NotImplementedError("Can't dup an ssl object")
-                               
+
 SSLSocket = GreenSSLSocket
 
 def wrap_socket(sock, *a, **kw):
@@ -292,8 +292,8 @@ if hasattr(__ssl, 'sslwrap_simple'):
         for compability with Python 2.5 and earlier.  Will disappear in
         Python 3.0."""
         ssl_sock = GreenSSLSocket(sock, keyfile=keyfile, certfile=certfile,
-                                  server_side=False, 
-                                  cert_reqs=CERT_NONE, 
-                                  ssl_version=PROTOCOL_SSLv23, 
+                                  server_side=False,
+                                  cert_reqs=CERT_NONE,
+                                  ssl_version=PROTOCOL_SSLv23,
                                   ca_certs=None)
         return ssl_sock

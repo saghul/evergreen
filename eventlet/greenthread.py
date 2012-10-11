@@ -1,7 +1,7 @@
 import sys
 
 from eventlet import event
-from eventlet import hubs
+from eventlet.hub import get_hub
 from eventlet.support import greenlets as greenlet
 
 __all__ = ['getcurrent', 'sleep', 'spawn', 'spawn_n', 'spawn_after', 'spawn_after_local', 'GreenThread']
@@ -19,7 +19,7 @@ def sleep(seconds=0):
     calling any socket methods, it's a good idea to call ``sleep(0)``
     occasionally; otherwise nothing else will run.
     """
-    hub = hubs.get_hub()
+    hub = get_hub()
     current = getcurrent()
     assert hub.greenlet is not current, 'do not call blocking functions from the mainloop'
     timer = hub.schedule_call_global(seconds, current.switch)
@@ -39,7 +39,7 @@ def spawn(func, *args, **kwargs):
     Use :func:`spawn_after` to  arrange for greenthreads to be spawned
     after a finite delay.
     """
-    hub = hubs.get_hub()
+    hub = get_hub()
     g = GreenThread(hub.greenlet)
     hub.schedule_call_global(0, g.switch, func, args, kwargs)
     return g
@@ -75,7 +75,7 @@ def spawn_after(seconds, func, *args, **kwargs):
     generally the desired behavior.  If terminating *func* regardless of whether
     it's started or not is the desired behavior, call :meth:`GreenThread.kill`.
     """
-    hub = hubs.get_hub()
+    hub = get_hub()
     g = GreenThread(hub.greenlet)
     hub.schedule_call_global(seconds, g.switch, func, args, kwargs)
     return g
@@ -98,14 +98,14 @@ def spawn_after_local(seconds, func, *args, **kwargs):
     of whether it's started or not is the desired behavior, call
     :meth:`GreenThread.kill`.
     """
-    hub = hubs.get_hub()
+    hub = get_hub()
     g = GreenThread(hub.greenlet)
     hub.schedule_call_local(seconds, g.switch, func, args, kwargs)
     return g
 
 
 def _spawn_n(seconds, func, args, kwargs):
-    hub = hubs.get_hub()
+    hub = get_hub()
     g = greenlet.greenlet(func, parent=hub.greenlet)
     t = hub.schedule_call_global(seconds, g.switch, *args, **kwargs)
     return t, g
@@ -200,7 +200,7 @@ def kill(g, *throw_args):
     """
     if g.dead:
         return
-    hub = hubs.get_hub()
+    hub = get_hub()
     if not g:
         # greenlet hasn't started yet and therefore throw won't work
         # on its own; semantically we want it to be as though the main
