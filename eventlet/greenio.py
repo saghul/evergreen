@@ -124,7 +124,7 @@ class GreenSocket(object):
             self._timeout = fd.gettimeout() or socket.getdefaulttimeout()
         except AttributeError:
             self._timeout = socket.getdefaulttimeout()
-        
+
         set_nonblocking(fd)
         self.fd = fd
         # when client calls setblocking(0) or settimeout(0) the socket must
@@ -213,11 +213,6 @@ class GreenSocket(object):
     def makefile(self, *args, **kw):
         return _fileobject(self.dup(), *args, **kw)
 
-    def makeGreenFile(self, *args, **kw):
-        warnings.warn("makeGreenFile has been deprecated, please use "
-            "makefile instead", DeprecationWarning, stacklevel=2)
-        return self.makefile(*args, **kw)
-
     def recv(self, buflen, flags=0):
         fd = self.fd
         if self.act_non_blocking:
@@ -232,9 +227,9 @@ class GreenSocket(object):
                     return ''
                 else:
                     raise
-            trampoline(fd, 
-                read=True, 
-                timeout=self.gettimeout(), 
+            trampoline(fd,
+                read=True,
+                timeout=self.gettimeout(),
                 timeout_exc=socket.timeout("timed out"))
 
     def recvfrom(self, *args):
@@ -363,7 +358,7 @@ class _SocketDuckForFd(object):
             # os.close may fail if __init__ didn't complete (i.e file dscriptor passed to popen was invalid
             pass
 
-    def __repr__(self):  
+    def __repr__(self):
         return "%s:%d" % (self.__class__.__name__, self._fileno)
 
 def _operationOnClosedFile(*args, **kwargs):
@@ -387,7 +382,7 @@ class GreenPipe(_fileobject):
 
         if isinstance(f, basestring):
             f = open(f, mode, 0)
- 
+
         if isinstance(f, int):
             fileno = f
             self._name = "<fd:%d>" % fileno
