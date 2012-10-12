@@ -1,7 +1,6 @@
 import sys
 def get_errno(exc):
     """ Get the error code out of socket.error objects.
-    socket.error in <2.5 does not have errno attribute
     socket.error in 3.x does not allow indexing access
     e.args[0] works for all.
     There are cases when args[0] is not errno.
@@ -10,7 +9,8 @@ def get_errno(exc):
     """
 
     try:
-        if exc.errno is not None: return exc.errno
+        if exc.errno is not None:
+            return exc.errno
     except AttributeError:
         pass
     try:

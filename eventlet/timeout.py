@@ -84,10 +84,6 @@ class Timeout(BaseException):
             self.timer = None
 
     def __repr__(self):
-        try:
-            classname = self.__class__.__name__
-        except AttributeError: # Python < 2.5
-            classname = 'Timeout'
         if self.pending:
             pending = ' pending'
         else:
@@ -97,7 +93,7 @@ class Timeout(BaseException):
         else:
             exception = ' exception=%r' % self.exception
         return '<%s at %s seconds=%s%s%s>' % (
-            classname, hex(id(self)), self.seconds, exception, pending)
+            self.__class__.__name__, hex(id(self)), self.seconds, exception, pending)
 
     def __str__(self):
         """

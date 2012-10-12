@@ -1,35 +1,9 @@
 import collections
 
+from contextlib import contextmanager
 from eventlet import queue
 
 __all__ = ['Pool', 'TokenPool']
-
-# have to stick this in an exec so it works in 2.4
-try:
-    from contextlib import contextmanager
-    exec('''
-@contextmanager
-def item_impl(self):
-    """ Get an object out of the pool, for use with with statement.
-
-    >>> from eventlet import pools
-    >>> pool = pools.TokenPool(max_size=4)
-    >>> with pool.item() as obj:
-    ...     print "got token"
-    ...
-    got token
-    >>> pool.free()
-    4
-    """
-    obj = self.get()
-    try:
-        yield obj
-    finally:
-        self.put(obj)
-''')
-except ImportError:
-    item_impl = None
-
 
 
 class Pool(object):
@@ -61,20 +35,11 @@ class Pool(object):
             def create(self):
                 return MyObject()
 
-    If using 2.5 or greater, the :meth:`item` method acts as a context manager;
+    The :meth:`item` method acts as a context manager;
     that's the best way to use it::
 
         with mypool.item() as thing:
             thing.dostuff()
-
-    If stuck on 2.4, the :meth:`get` and :meth:`put` methods are the preferred
-    nomenclature.  Use a ``finally`` to ensure that nothing is leaked::
-
-        thing = self.pool.get()
-        try:
-            thing.dostuff()
-        finally:
-            self.pool.put(thing)
 
     The maximum size of the pool can be modified at runtime via
     the :meth:`resize` method.
@@ -119,29 +84,44 @@ class Pool(object):
                 created = self.create()
             except:
                 self.current_size -= 1
-                raise                
+                raise
             return created
         self.current_size -= 1 # did not create
         return self.channel.get()
 
-    if item_impl is not None:
-        item = item_impl
+    @contextmanager
+    def item_impl(self):
+        """ Get an object out of the pool, for use with with statement.
 
-    def put(self, item):
-        """Put an item back into the pool, when done.  This may
-        cause the putting greenthread to block.
+        >>> from eventlet import pools
+        >>> pool = pools.TokenPool(max_size=4)
+        >>> with pool.item() as obj:
+        ...     print "got token"
+        ...
+        got token
+        >>> pool.free()
+        4
         """
-        if self.current_size > self.max_size:
-            self.current_size -= 1
-            return
+        obj = self.get()
+        try:
+            yield obj
+        finally:
+            self.put(obj)
+        def put(self, item):
+            """Put an item back into the pool, when done.  This may
+            cause the putting greenthread to block.
+            """
+            if self.current_size > self.max_size:
+                self.current_size -= 1
+                return
 
-        if self.waiting():
-            self.channel.put(item)
-        else:
-            if self.order_as_stack:
-                self.free_items.appendleft(item)
+            if self.waiting():
+                self.channel.put(item)
             else:
-                self.free_items.append(item)
+                if self.order_as_stack:
+                    self.free_items.appendleft(item)
+                else:
+                    self.free_items.append(item)
 
     def resize(self, new_size):
         """Resize the pool to *new_size*.
