@@ -1,97 +1,103 @@
 import sys
 
-from eventlet import greenthread
-from eventlet import greenpool
 from eventlet.green import socket
-from eventlet.support import greenlets as greenlet
 
-def connect(addr, family=socket.AF_INET, bind=None):
+
+def _check_ip_family(family, address):
+    try:
+        socket.inet_pton(family, address)
+    except socket.error:
+        return False
+    return True
+
+def is_ipv4(address):
+    return _check_ip_family(socket.AF_INET, address)
+
+def is_ipv6(address):
+    return _check_ip_family(socket.AF_INET6, address)
+
+
+def connect(endpoint, source_address=None):
     """Convenience function for opening client sockets.
 
-    :param addr: Address of the server to connect to.  For TCP sockets, this is a (host, port) tuple.
-    :param family: Socket family, optional.  See :mod:`socket` documentation for available families.
-    :param bind: Local address to bind to, optional.
+    :param endpoint: Endpoint address to connect to. TCP, UDP and UNIX sockets are supported. Examples:
+        tcp:127.0.0.1:1234
+        udp:127.0.0.1:1234
+        unix:/tmp/foo.sock
+    :param source_address: Local address to bind to, optional.
     :return: The connected green socket object.
     """
-    sock = socket.socket(family, socket.SOCK_STREAM)
-    if bind is not None:
-        sock.bind(bind)
-    sock.connect(addr)
-    return sock
+
+    proto, _, netloc = endpoint.partition(':')
+    proto = proto.lower()
+    if proto in ('tcp', 'udp'):
+        host, port = netloc.split(':')
+        if not port.isdigit():
+            raise ValueError('invalid port specified: %s' % port)
+        err = None
+        sock_type = socket.SOCK_STREAM if proto=='tcp' else socket.SOCK_DGRAM
+        for res in socket.getaddrinfo(host, port, 0, sock_type):
+            af, socktype, proto, canonname, sa = res
+            sock = None
+            try:
+                sock = socket.socket(af, socktype, proto)
+                if source_address:
+                    sock.bind(source_address)
+                sock.connect(sa)
+                return sock
+            except socket.error as _:
+                err = _
+                if sock is not None:
+                    sock.close()
+        if err is not None:
+            raise err
+        else:
+            raise socket.error("getaddrinfo returns an empty list")
+    elif proto == 'unix':
+        addr = netloc
+        sock = socket.socket(socket.AF_UNIX)
+        sock.connect(addr)
+        return sock
+    else:
+        raise ValueError('invalid endpoint protocol specified: %s' % proto)
 
 
-def listen(addr, family=socket.AF_INET, backlog=50):
+def listen(endpoint, backlog=128):
     """Convenience function for opening server sockets.  This
     socket can be used in :func:`~eventlet.serve` or a custom ``accept()`` loop.
 
     Sets SO_REUSEADDR on the socket to save on annoyance.
 
-    :param addr: Address to listen on.  For TCP sockets, this is a (host, port)  tuple.
-    :param family: Socket family, optional.  See :mod:`socket` documentation for available families.
+    :param endpoint: Endpoint address to listen on. TCP, UDP and UNIX sockets are supported. Examples:
+        tcp:127.0.0.1:1234
+        udp:127.0.0.1:1234
+        unix:/tmp/foo.sock
     :param backlog: The maximum number of queued connections. Should be at least 1; the maximum value is system-dependent.
     :return: The listening green socket object.
     """
-    sock = socket.socket(family, socket.SOCK_STREAM)
-    if sys.platform[:3] != "win":
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sock.bind(addr)
+
+    proto, _, netloc = endpoint.partition(':')
+    proto = proto.lower()
+    if proto in ('tcp', 'udp'):
+        addr, port = netloc.split(':')
+        if not port.isdigit():
+            raise ValueError('invalid port specified: %s' % port)
+        socktype = socket.SOCK_STREAM if proto=='tcp' else socket.SOCK_DGRAM
+        if is_ipv4(addr):
+            sock = socket.socket(socket.AF_INET, socktype)
+        elif is_ipv6(addr):
+            sock = socket.socket(socket.AF_INET6, socktype)
+        else:
+            sock = socket.socket(socket.AF_INET, socktype)
+        if sys.platform[:3] != "win":
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        sock.bind((addr, int(port)))
+    elif proto == 'unix':
+        addr = netloc
+        sock = socket.socket(socket.AF_UNIX)
+        sock.bind(addr)
+    else:
+        raise ValueError('invalid endpoint protocol specified: %s' % proto)
     sock.listen(backlog)
     return sock
-
-class StopServe(Exception):
-    """Exception class used for quitting :func:`~eventlet.serve` gracefully."""
-    pass
-
-def _stop_checker(t, server_gt, conn):
-    try:
-        try:
-            t.wait()
-        finally:
-            conn.close()
-    except greenlet.GreenletExit:
-        pass
-    except Exception:
-        greenthread.kill(server_gt, *sys.exc_info())
-
-def serve(sock, handle, concurrency=1000):
-    """Runs a server on the supplied socket.  Calls the function *handle* in a
-    separate greenthread for every incoming client connection.  *handle* takes
-    two arguments: the client socket object, and the client address::
-
-        def myhandle(client_sock, client_addr):
-            print "client connected", client_addr
-
-        eventlet.serve(eventlet.listen(('127.0.0.1', 9999)), myhandle)
-
-    Returning from *handle* closes the client socket.
-
-    :func:`serve` blocks the calling greenthread; it won't return until
-    the server completes.  If you desire an immediate return,
-    spawn a new greenthread for :func:`serve`.
-
-    Any uncaught exceptions raised in *handle* are raised as exceptions
-    from :func:`serve`, terminating the server, so be sure to be aware of the
-    exceptions your application can raise.  The return value of *handle* is
-    ignored.
-
-    Raise a :class:`~eventlet.StopServe` exception to gracefully terminate the
-    server -- that's the only way to get the server() function to return rather
-    than raise.
-
-    The value in *concurrency* controls the maximum number of
-    greenthreads that will be open at any time handling requests.  When
-    the server hits the concurrency limit, it stops accepting new
-    connections until the existing ones complete.
-    """
-    pool = greenpool.GreenPool(concurrency)
-    server_gt = greenthread.getcurrent()
-
-    while True:
-        try:
-            conn, addr = sock.accept()
-            gt = pool.spawn(handle, conn, addr)
-            gt.link(_stop_checker, server_gt, conn)
-            conn, addr, gt = None, None, None
-        except StopServe:
-            return
 

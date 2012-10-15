@@ -28,7 +28,4 @@ monkey_patch = patcher.monkey_patch
 
 connect = convenience.connect
 listen = convenience.listen
-serve = convenience.serve
-StopServe = convenience.StopServe
-wrap_ssl = convenience.wrap_ssl
 
