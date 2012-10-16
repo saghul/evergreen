@@ -23,10 +23,8 @@
 from eventlet.support import greenlets as greenlet
 from eventlet.hub import get_hub
 
-__all__ = ['Timeout',
-           'with_timeout']
+__all__ = ['Timeout']
 
-_NONE = object()
 
 # deriving from BaseException so that "except Exception, e" doesn't catch
 # Timeout exceptions.
@@ -125,20 +123,3 @@ class Timeout(BaseException):
         if value is self and self.exception is False:
             return True
 
-
-def with_timeout(seconds, function, *args, **kwds):
-    """Wrap a call to some (yielding) function with a timeout; if the called
-    function fails to return before the timeout, cancel it and return a flag
-    value.
-    """
-    timeout_value = kwds.pop("timeout_value", _NONE)
-    timeout = Timeout(seconds)
-    try:
-        try:
-            return function(*args, **kwds)
-        except Timeout, ex:
-            if ex is timeout and timeout_value is not _NONE:
-                return timeout_value
-            raise
-    finally:
-        timeout.cancel()
