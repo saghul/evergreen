@@ -11,7 +11,6 @@ from eventlet import convenience
 
 sleep = greenthread.sleep
 spawn = greenthread.spawn
-spawn_n = greenthread.spawn_n
 spawn_after = greenthread.spawn_after
 kill = greenthread.kill
 

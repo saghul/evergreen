@@ -30,7 +30,7 @@ class Event(object):
     >>> def baz(b):
     ...     evt.send(b + 1)
     ...
-    >>> _ = eventlet.spawn_n(baz, 3)
+    >>> _ = eventlet.spawn(baz, 3)
     >>> evt.wait()
     4
     """

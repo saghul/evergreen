@@ -145,7 +145,7 @@ class Actor(object):
                 # leave the message in the mailbox until after it's
                 # been processed so the event doesn't get triggered
                 # while in the received method
-                self._pool.spawn_n(
+                self._pool.spawn(
                     self.received, self._mailbox[0])
                 self._mailbox.popleft()
 

@@ -111,7 +111,7 @@ def execute(meth,*args, **kwargs):
     k = k + 0x2c865fd + (k >> 5)
     k = k ^ 0xc84d1b7 ^ (k >> 7)
     thread_index = k % _nthreads
-    
+
     reqq, _thread = _threads[thread_index]
     e = event.Event()
     reqq.put((e,meth,args,kwargs))
@@ -194,7 +194,7 @@ class Proxy(object):
     # doesn't use getattr to retrieve and therefore have to be defined
     # explicitly
     def __getitem__(self, key):
-        return proxy_call(self._autowrap, self._obj.__getitem__, key)    
+        return proxy_call(self._autowrap, self._obj.__getitem__, key)
     def __setitem__(self, key, value):
         return proxy_call(self._autowrap, self._obj.__setitem__, key, value)
     def __deepcopy__(self, memo=None):
@@ -268,15 +268,15 @@ def setup():
             variable EVENTLET_THREADPOOL_SIZE.", RuntimeWarning)
     for i in xrange(_nthreads):
         reqq = Queue(maxsize=-1)
-        t = threading.Thread(target=tworker, 
-                             name="tpool_thread_%s" % i, 
+        t = threading.Thread(target=tworker,
+                             name="tpool_thread_%s" % i,
                              args=(reqq,))
         t.setDaemon(True)
         t.start()
         _threads.append((reqq, t))
-        
 
-    _coro = greenthread.spawn_n(tpool_trampoline)
+
+    _coro = greenthread.spawn(tpool_trampoline)
 
 
 def killall():

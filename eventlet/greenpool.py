@@ -41,7 +41,7 @@ class GreenPool(object):
     def free(self):
         """ Returns the number of greenthreads available for use.
 
-        If zero or less, the next call to :meth:`spawn` or :meth:`spawn_n` will
+        If zero or less, the next call to :meth:`spawn` will
         block the calling greenthread until a slot becomes available."""
         return self.sem.counter
 
@@ -73,40 +73,6 @@ class GreenPool(object):
             self.coroutines_running.add(gt)
             gt.link(self._spawn_done)
         return gt
-
-    def _spawn_n_impl(self, func, args, kwargs, coro):
-        try:
-            try:
-                func(*args, **kwargs)
-            except (KeyboardInterrupt, SystemExit, greenlet.GreenletExit):
-                raise
-            except:
-                if DEBUG:
-                    traceback.print_exc()
-        finally:
-            if coro is None:
-                return
-            else:
-                coro = greenthread.getcurrent()
-                self._spawn_done(coro)
-
-    def spawn_n(self, function, *args, **kwargs):
-        """Create a greenthread to run the *function*, the same as
-        :meth:`spawn`.  The difference is that :meth:`spawn_n` returns
-        None; the results of *function* are not retrievable.
-        """
-        # if reentering an empty pool, don't try to wait on a coroutine freeing
-        # itself -- instead, just execute in the current coroutine
-        current = greenthread.getcurrent()
-        if self.sem.locked() and current in self.coroutines_running:
-            self._spawn_n_impl(function, args, kwargs, None)
-        else:
-            self.sem.acquire()
-            g = greenthread.spawn_n(self._spawn_n_impl,
-                function, args, kwargs, True)
-            if not self.coroutines_running:
-                self.no_coros_running = event.Event()
-            self.coroutines_running.add(g)
 
     def waitall(self):
         """Waits until all greenthreads in the pool are finished working."""
@@ -148,15 +114,15 @@ class GreenPool(object):
         if function is None:
             function = lambda *a: a
         gi = GreenMap(self.size)
-        greenthread.spawn_n(self._do_map, function, iterable, gi)
+        greenthread.spawn(self._do_map, function, iterable, gi)
         return gi
 
     def imap(self, function, *iterables):
         """This is the same as :func:`itertools.imap`, and has the same
         concurrency and memory behavior as :meth:`starmap`.
-        
+
         It's quite convenient for, e.g., farming out jobs from a file::
-           
+
            def worker(line):
                return do_something(line)
            pool = GreenPool()

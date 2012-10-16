@@ -4,7 +4,7 @@ from eventlet import event
 from eventlet.hub import get_hub
 from eventlet.support import greenlets as greenlet
 
-__all__ = ['getcurrent', 'sleep', 'spawn', 'spawn_n', 'spawn_after', 'spawn_after_local', 'GreenThread']
+__all__ = ['getcurrent', 'sleep', 'spawn', 'spawn_after', 'spawn_after_local', 'GreenThread']
 
 getcurrent = greenlet.getcurrent
 
@@ -43,19 +43,6 @@ def spawn(func, *args, **kwargs):
     g = GreenThread(hub.greenlet)
     hub.schedule_call_global(0, g.switch, func, args, kwargs)
     return g
-
-
-def spawn_n(func, *args, **kwargs):
-    """Same as :func:`spawn`, but returns a ``greenlet`` object from
-    which it is not possible to retrieve either a return value or
-    whether it raised any exceptions.  This is faster than
-    :func:`spawn`; it is fastest if there are no keyword arguments.
-
-    If an exception is raised in the function, spawn_n prints a stack
-    trace; the print can be disabled by calling
-    :func:`eventlet.debug.hub_exceptions` with False.
-    """
-    return _spawn_n(0, func, args, kwargs)[1]
 
 
 def spawn_after(seconds, func, *args, **kwargs):
@@ -102,13 +89,6 @@ def spawn_after_local(seconds, func, *args, **kwargs):
     g = GreenThread(hub.greenlet)
     hub.schedule_call_local(seconds, g.switch, func, args, kwargs)
     return g
-
-
-def _spawn_n(seconds, func, args, kwargs):
-    hub = get_hub()
-    g = greenlet.greenlet(func, parent=hub.greenlet)
-    t = hub.schedule_call_global(seconds, g.switch, *args, **kwargs)
-    return t, g
 
 
 class GreenThread(greenlet.greenlet):

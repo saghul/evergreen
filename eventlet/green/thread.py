@@ -5,7 +5,7 @@ from eventlet import greenthread
 from eventlet.semaphore import Semaphore as LockType
 
 __patched__ = ['get_ident', 'start_new_thread', 'start_new', 'allocate_lock',
-               'allocate', 'exit', 'interrupt_main', 'stack_size', '_local', 
+               'allocate', 'exit', 'interrupt_main', 'stack_size', '_local',
                'LockType', '_count']
 
 error = __thread.error
@@ -29,9 +29,9 @@ def __thread_body(func, args, kwargs):
         __threadcount -= 1
 
 def start_new_thread(function, args=(), kwargs={}):
-    g = greenthread.spawn_n(__thread_body, function, args, kwargs)
+    g = greenthread.spawn(__thread_body, function, args, kwargs)
     return get_ident(g)
-    
+
 start_new = start_new_thread
 
 def allocate_lock(*a):
@@ -41,7 +41,7 @@ allocate = allocate_lock
 
 def exit():
     raise greenlet.GreenletExit
-    
+
 exit_thread = __thread.exit_thread
 
 def interrupt_main():
