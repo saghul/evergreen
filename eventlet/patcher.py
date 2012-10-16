@@ -34,7 +34,7 @@ class SysModulesSaver(object):
                         pass
         finally:
             imp.release_lock()
-                
+
 
 def inject(module_name, new_globals, *additional_modules):
     """Base method for "injecting" greened modules into an imported module.  It
@@ -64,9 +64,9 @@ def inject(module_name, new_globals, *additional_modules):
             _green_select_modules() +
             _green_socket_modules() +
             _green_thread_modules() +
-            _green_time_modules()) 
+            _green_time_modules())
             #_green_MySQLdb()) # enable this after a short baking-in period
-    
+
     # after this we are gonna screw with sys.modules, so capture the
     # state of all the modules we're going to mess with, and lock
     saver = SysModulesSaver([name for name, m in additional_modules])
@@ -122,7 +122,7 @@ def patch_function(func, *additional_modules):
             _green_os_modules() +
             _green_select_modules() +
             _green_socket_modules() +
-            _green_thread_modules() + 
+            _green_thread_modules() +
             _green_time_modules())
 
     def patched(*args, **kw):
@@ -155,7 +155,7 @@ def _original_patch_function(func, *module_names):
 
 
 def original(modname):
-    """ This returns an unpatched version of a module; this is useful for 
+    """ This returns an unpatched version of a module; this is useful for
     Eventlet itself (i.e. tpool)."""
     # note that it's not necessary to temporarily install unpatched
     # versions of all patchable modules during the import of the
@@ -184,7 +184,7 @@ def original(modname):
             # threading on every instantiation; therefore we wrap
             # it so that it always gets the original threading
             real_mod.Queue.__init__ = _original_patch_function(
-                real_mod.Queue.__init__, 
+                real_mod.Queue.__init__,
                 'threading')
         # save a reference to the unpatched module so it doesn't get lost
         sys.modules[original_name] = real_mod
@@ -200,15 +200,14 @@ def monkey_patch(**on):
     The keyword arguments afford some control over which modules are patched.
     If no keyword arguments are supplied, all possible modules are patched.
     If keywords are set to True, only the specified modules are patched.  E.g.,
-    ``monkey_patch(socket=True, select=True)`` patches only the select and 
-    socket modules.  Most arguments patch the single module of the same name 
-    (os, time, select).  The exceptions are socket, which also patches the ssl 
+    ``monkey_patch(socket=True, select=True)`` patches only the select and
+    socket modules.  Most arguments patch the single module of the same name
+    (os, time, select).  The exceptions are socket, which also patches the ssl
     module if present; and thread, which patches thread, threading, and Queue.
 
     It's safe to call monkey_patch multiple times.
-    """    
-    accepted_args = set(('os', 'select', 'socket', 
-                         'thread', 'time', 'psycopg', 'MySQLdb'))
+    """
+    accepted_args = set(('os', 'select', 'socket', 'thread', 'time'))
     default_on = on.pop("all",None)
     for k in on.iterkeys():
         if k not in accepted_args:
@@ -217,11 +216,8 @@ def monkey_patch(**on):
     if default_on is None:
         default_on = not (True in on.values())
     for modname in accepted_args:
-        if modname == 'MySQLdb':
-            # MySQLdb is only on when explicitly patched for the moment
-            on.setdefault(modname, False)
         on.setdefault(modname, default_on)
-        
+
     modules_to_patch = []
     if on['os'] and not already_patched.get('os'):
         modules_to_patch += _green_os_modules()
@@ -238,21 +234,6 @@ def monkey_patch(**on):
     if on['time'] and not already_patched.get('time'):
         modules_to_patch += _green_time_modules()
         already_patched['time'] = True
-    if on.get('MySQLdb') and not already_patched.get('MySQLdb'):
-        modules_to_patch += _green_MySQLdb()
-        already_patched['MySQLdb'] = True
-    if on['psycopg'] and not already_patched.get('psycopg'):
-        try:
-            from eventlet.support import psycopg2_patcher
-            psycopg2_patcher.make_psycopg_green()
-            already_patched['psycopg'] = True
-        except ImportError:
-            # note that if we get an importerror from trying to
-            # monkeypatch psycopg, we will continually retry it
-            # whenever monkey_patch is called; this should not be a
-            # performance problem but it allows is_monkey_patched to
-            # tell us whether or not we succeeded
-            pass
 
     imp.acquire_lock()
     try:
@@ -315,9 +296,9 @@ def _green_MySQLdb():
 def slurp_properties(source, destination, ignore=[], srckeys=None):
     """Copy properties from *source* (assumed to be a module) to
     *destination* (assumed to be a dict).
-    
+
     *ignore* lists properties that should not be thusly copied.
-    *srckeys* is a list of keys to copy, if the source's __all__ is 
+    *srckeys* is a list of keys to copy, if the source's __all__ is
     untrustworthy.
     """
     if srckeys is None:
@@ -325,7 +306,7 @@ def slurp_properties(source, destination, ignore=[], srckeys=None):
     destination.update(dict([(name, getattr(source, name))
                               for name in srckeys
                               if not (
-                                name.startswith('__') or 
+                                name.startswith('__') or
                                 name in ignore)
                             ]))
 
