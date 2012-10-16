@@ -6,6 +6,7 @@ import sys
 import traceback
 
 from eventlet.support import greenlets as greenlet, clear_sys_exc_info
+from eventlet.threadpool import ThreadPool
 from eventlet import patcher
 time = patcher.original('time')
 threading = patcher.original('threading')
@@ -90,6 +91,7 @@ class Hub(object):
     def __init__(self):
         self.greenlet = greenlet.greenlet(self.run)
         self.loop = pyuv.Loop()
+        self.threadpool = ThreadPool(self)
 
         self._listeners = {READ:{}, WRITE:{}}
         self._timers = set()
