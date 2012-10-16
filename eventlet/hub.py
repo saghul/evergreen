@@ -78,7 +78,7 @@ class DebugListener(FdListener):
 class Waker(object):
 
     def __init__(self, hub):
-        self._async = pyuv.Async(hub._loop, lambda x: None)
+        self._async = pyuv.Async(hub.loop, lambda x: None)
         self._async.unref()
 
     def wake(self):
@@ -89,9 +89,9 @@ class Hub(object):
 
     def __init__(self):
         self.greenlet = greenlet.greenlet(self.run)
+        self.loop = pyuv.Loop()
 
         self._listeners = {READ:{}, WRITE:{}}
-        self._loop = pyuv.Loop()
         self._timers = set()
         self._poll_handles = {}
         self._waker = Waker(self)
@@ -178,7 +178,7 @@ class Hub(object):
             self.running = True
             while not self.stopping:
                 try:
-                    self._loop.run_once()
+                    self.loop.run_once()
                 except SYSTEM_EXCEPTIONS:
                     raise
                 except:
@@ -294,9 +294,9 @@ class Hub(object):
         def cb(handle):
             if not handle.closed:
                 handle.close()
-        self._loop.walk(cb)
+        self.loop.walk(cb)
         # All handles are now closed, run will not block
-        self._loop.run()
+        self.loop.run()
 
     def _poll_cb(self, listener, handle, error):
         try:
@@ -308,7 +308,7 @@ class Hub(object):
             clear_sys_exc_info()
 
     def _add_poll_handle(self, listener):
-        handle = pyuv.Poll(self._loop, listener.fileno)
+        handle = pyuv.Poll(self.loop, listener.fileno)
         self._poll_handles[listener.fileno] = handle
         events = pyuv.UV_READABLE if listener.evtype == READ else pyuv.UV_WRITABLE
         cb = functools.partial(listener.cb, listener)
@@ -327,7 +327,7 @@ class Timer(object):
         self.cb = functools.partial(cb, *args, **kw)
         self._hub = hub
         self._hub._timers.add(self)
-        self._timer = pyuv.Timer(hub._loop)
+        self._timer = pyuv.Timer(hub.loop)
         self._timer.start(self._timer_cb, seconds, 0.0)
 
     def _timer_cb(self, timer):
