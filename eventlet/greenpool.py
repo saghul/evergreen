@@ -9,7 +9,6 @@ from eventlet.support import greenlets as greenlet
 
 __all__ = ['GreenPool', 'GreenPile']
 
-DEBUG = True
 
 class GreenPool(object):
     """The GreenPool class is a pool of green threads.
@@ -185,20 +184,3 @@ class GreenPile(object):
         finally:
             self.counter -= 1
 
-# this is identical to GreenPile but it blocks on spawn if the results
-# aren't consumed, and it doesn't generate its own StopIteration exception,
-# instead relying on the spawning process to send one in when it's done
-class GreenMap(GreenPile):
-    def __init__(self, size_or_pool):
-        super(GreenMap, self).__init__(size_or_pool)
-        self.waiters = queue.LightQueue(maxsize=self.pool.size)
-
-    def next(self):
-        try:
-            val = self.waiters.get().wait()
-            if isinstance(val, StopIteration):
-                raise val
-            else:
-                return val
-        finally:
-            self.counter -= 1
