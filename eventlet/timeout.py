@@ -20,8 +20,8 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.from eventlet.support import greenlets as greenlet
 
+import eventlet
 from eventlet.support import greenlets as greenlet
-from eventlet.hub import get_hub
 
 __all__ = ['Timeout']
 
@@ -53,14 +53,14 @@ class Timeout(BaseException):
         canceled."""
         assert not self.pending, \
                '%r is already started; to restart it, cancel it first' % self
+        hub = eventlet.core.hub
+        current = eventlet.core.current_greenlet
         if self.seconds is None: # "fake" timeout (never expires)
             self.timer = None
         elif self.exception is None or isinstance(self.exception, bool): # timeout that raises self
-            self.timer = get_hub().schedule_call_global(
-                self.seconds, greenlet.getcurrent().throw, self)
+            self.timer = hub.schedule_call_global(self.seconds, current.throw, self)
         else: # regular timeout with user-provided exception
-            self.timer = get_hub().schedule_call_global(
-                self.seconds, greenlet.getcurrent().throw, self.exception)
+            self.timer = hub.schedule_call_global(self.seconds, current.throw, self.exception)
         return self
 
     @property

@@ -16,3 +16,6 @@ Timeout = timeout.Timeout
 connect = convenience.connect
 listen = convenience.listen
 
+import eventlet.core
+core = eventlet.core.setup()
+

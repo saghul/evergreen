@@ -2,17 +2,16 @@
 import functools
 import pyuv
 
+import eventlet
 from eventlet.support import greenlets as greenlet
-#from eventlet.greenthread import getcurrent
 
 
 Null = object()
 
 class Result(object):
 
-    def __init__(self, hub):
+    def __init__(self):
         self._g = None
-        self._hub = hub
         self._value = Null
         self._exc = Null
         self._done = False
@@ -21,20 +20,19 @@ class Result(object):
         assert not self._done, 'This Result has already been used'
         self._value = value
         if self._g is not None:
-            self._hub.schedule_call_global(0, self._g.switch, self)
+            eventlet.core.hub.schedule_call_global(0, self._g.switch, self)
 
     def set_exception(self, typ, val, tb):
         assert not self._done, 'This Result has already been used'
         self._exc = (typ, val, tb)
         if self._g is not None:
-            self._hub.schedule_call_global(0, self._g.switch, self)
+            eventlet.core.hub.schedule_call_global(0, self._g.switch, self)
 
     def get(self):
-        from eventlet.hub import get_hub
         assert not self._done, 'This Result has already been used'
         assert self._g is None, 'This Result is already used by %r' % self._g
-        current = greenlet.getcurrent()
-        hub = get_hub()
+        hub = eventlet.core.hub
+        current = eventlet.core.current_greenlet
         assert current is not hub.greenlet, 'Cannot block in the Hub'
         self._g = current
         try:
@@ -67,7 +65,7 @@ class ThreadPool(object):
 
     def spawn(self, func, *args, **kwargs):
         f = functools.partial(func, *args, **kwargs)
-        result = Result(self._hub)
+        result = Result()
         def after(value, error):
             if error is not None:
                 result.set_exception(*error)

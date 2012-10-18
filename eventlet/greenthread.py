@@ -1,7 +1,8 @@
 import sys
 
+import eventlet
+
 from eventlet import event
-from eventlet.hub import get_hub
 from eventlet.support import greenlets as greenlet
 
 __all__ = ['getcurrent', 'sleep', 'spawn', 'spawn_after', 'spawn_after_local', 'GreenThread']
@@ -19,8 +20,8 @@ def sleep(seconds=0):
     calling any socket methods, it's a good idea to call ``sleep(0)``
     occasionally; otherwise nothing else will run.
     """
-    hub = get_hub()
-    current = getcurrent()
+    hub = eventlet.core.hub
+    current = eventlet.core.current_greenlet
     assert hub.greenlet is not current, 'do not call blocking functions from the mainloop'
     timer = hub.schedule_call_global(seconds, current.switch)
     try:
@@ -39,7 +40,7 @@ def spawn(func, *args, **kwargs):
     Use :func:`spawn_after` to  arrange for greenthreads to be spawned
     after a finite delay.
     """
-    hub = get_hub()
+    hub = eventlet.core.hub
     g = GreenThread(hub.greenlet)
     hub.schedule_call_global(0, g.switch, func, args, kwargs)
     return g
@@ -62,7 +63,7 @@ def spawn_after(seconds, func, *args, **kwargs):
     generally the desired behavior.  If terminating *func* regardless of whether
     it's started or not is the desired behavior, call :meth:`GreenThread.kill`.
     """
-    hub = get_hub()
+    hub = eventlet.core.hub
     g = GreenThread(hub.greenlet)
     hub.schedule_call_global(seconds, g.switch, func, args, kwargs)
     return g
@@ -85,7 +86,7 @@ def spawn_after_local(seconds, func, *args, **kwargs):
     of whether it's started or not is the desired behavior, call
     :meth:`GreenThread.kill`.
     """
-    hub = get_hub()
+    hub = eventlet.core.hub
     g = GreenThread(hub.greenlet)
     hub.schedule_call_local(seconds, g.switch, func, args, kwargs)
     return g
@@ -180,7 +181,7 @@ def kill(g, *throw_args):
     """
     if g.dead:
         return
-    hub = get_hub()
+    hub = eventlet.core.hub
     if not g:
         # greenlet hasn't started yet and therefore throw won't work
         # on its own; semantically we want it to be as though the main
@@ -198,8 +199,9 @@ def kill(g, *throw_args):
                 g.main(just_raise, (), {})
             except:
                 pass
-    current = getcurrent()
+    current = eventlet.core.current_greenlet
     if current is not hub.greenlet:
         # arrange to wake the caller back up immediately
         hub.schedule_call_global(0, current.switch)
     g.throw(*throw_args)
+
