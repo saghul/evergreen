@@ -42,7 +42,7 @@ def spawn(func, *args, **kwargs):
     """
     hub = eventlet.core.hub
     g = GreenThread(hub.greenlet)
-    hub.schedule_call_global(0, g.switch, func, args, kwargs)
+    hub.next_tick(g.switch, func, args, kwargs)
     return g
 
 

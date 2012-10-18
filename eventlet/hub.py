@@ -1,9 +1,11 @@
 
-import functools
 import os
 import pyuv
 import sys
 import traceback
+
+from collections import deque
+from functools import partial
 
 from eventlet.support import greenlets as greenlet, clear_sys_exc_info
 from eventlet.threadpool import ThreadPool
@@ -97,6 +99,9 @@ class Hub(object):
         self._timers = set()
         self._poll_handles = {}
         self._waker = Waker(self)
+        self._tick_prepare = pyuv.Prepare(self.loop)
+        self._tick_idle = pyuv.Idle(self.loop)
+        self._tick_callbacks = deque()
 
         self.stopping = False
         self.running = False
@@ -167,6 +172,12 @@ class Hub(object):
         except Exception, e:
             sys.stderr.write("Exception while removing descriptor! %r\n" % (e,))
             sys.stderr.flush()
+
+    def next_tick(self, func, *args, **kw):
+        self._tick_callbacks.append(partial(func, *args, **kw))
+        if not self._tick_prepare.active:
+            self._tick_prepare.start(self._tick_cb)
+            self._tick_idle.start(lambda handle: handle.stop())
 
     def run(self, *a, **kw):
         """Run the runloop until abort is called.
@@ -300,6 +311,19 @@ class Hub(object):
         # All handles are now closed, run will not block
         self.loop.run()
 
+    def _tick_cb(self, handle):
+        self._tick_prepare.stop()
+        self._tick_idle.stop()
+        queue, self._tick_callbacks = self._tick_callbacks, deque()
+        for f in queue:
+            try:
+                f()
+            except SYSTEM_EXCEPTIONS:
+                raise
+            except:
+                self.squelch_generic_exception(sys.exc_info())
+                clear_sys_exc_info()
+
     def _poll_cb(self, listener, handle, error):
         try:
             listener.cb(listener.fileno)
@@ -313,8 +337,7 @@ class Hub(object):
         handle = pyuv.Poll(self.loop, listener.fileno)
         self._poll_handles[listener.fileno] = handle
         events = pyuv.UV_READABLE if listener.evtype == READ else pyuv.UV_WRITABLE
-        cb = functools.partial(listener.cb, listener)
-        handle.start(events, cb)
+        handle.start(events, partial(listener.cb, listener))
 
     def _remove_poll_handle(self, listener):
         handle = self._poll_handles.pop(listener.fileno, None)
@@ -326,7 +349,7 @@ class Timer(object):
 
     def __init__(self, hub, seconds, cb, *args, **kw):
         self.called = False
-        self.cb = functools.partial(cb, *args, **kw)
+        self.cb = partial(cb, *args, **kw)
         self._hub = hub
         self._hub._timers.add(self)
         self._timer = pyuv.Timer(hub.loop)
