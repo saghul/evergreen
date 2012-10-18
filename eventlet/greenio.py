@@ -1,4 +1,4 @@
-from eventlet.support import get_errno
+
 from eventlet.hub import trampoline
 BUFFER_SIZE = 4096
 
@@ -51,7 +51,7 @@ def socket_accept(descriptor):
     try:
         return descriptor.accept()
     except socket.error, e:
-        if get_errno(e) == errno.EWOULDBLOCK:
+        if e.args[0] == errno.EWOULDBLOCK:
             return None
         raise
 
@@ -187,8 +187,8 @@ class GreenSocket(object):
                 try:
                     trampoline(fd, write=True)
                     socket_checkerr(fd)
-                except socket.error, ex:
-                    return get_errno(ex)
+                except socket.error, e:
+                    return e.args[0]
         else:
             end = time.time() + self.gettimeout()
             while True:
@@ -200,8 +200,8 @@ class GreenSocket(object):
                     trampoline(fd, write=True, timeout=end-time.time(),
                             timeout_exc=socket.timeout(errno.EAGAIN))
                     socket_checkerr(fd)
-                except socket.error, ex:
-                    return get_errno(ex)
+                except socket.error, e:
+                    return e.args[0]
 
     def dup(self, *args, **kw):
         sock = self.fd.dup(*args, **kw)
@@ -221,9 +221,9 @@ class GreenSocket(object):
             try:
                 return fd.recv(buflen, flags)
             except socket.error, e:
-                if get_errno(e) in SOCKET_BLOCKING:
+                if e.args[0] in SOCKET_BLOCKING:
                     pass
-                elif get_errno(e) in SOCKET_CLOSED:
+                elif e.args[0] in SOCKET_CLOSED:
                     return ''
                 else:
                     raise
@@ -263,7 +263,7 @@ class GreenSocket(object):
             try:
                 total_sent += fd.send(data[total_sent:], flags)
             except socket.error, e:
-                if get_errno(e) not in SOCKET_BLOCKING:
+                if e.args[0] not in SOCKET_BLOCKING:
                     raise
 
             if total_sent == len_data:
@@ -329,7 +329,7 @@ class _SocketDuckForFd(object):
                 data = os.read(self._fileno, buflen)
                 return data
             except OSError, e:
-                if get_errno(e) != errno.EAGAIN:
+                if e.args[0] != errno.EAGAIN:
                     raise IOError(*e.args)
             trampoline(self, read=True)
 
@@ -340,7 +340,7 @@ class _SocketDuckForFd(object):
         try:
             total_sent = os_write(fileno, data)
         except OSError, e:
-            if get_errno(e) != errno.EAGAIN:
+            if e.args[0] != errno.EAGAIN:
                 raise IOError(*e.args)
             total_sent = 0
         while total_sent <len_data:
@@ -348,7 +348,7 @@ class _SocketDuckForFd(object):
             try:
                 total_sent += os_write(fileno, data[total_sent:])
             except OSError, e:
-                if get_errno(e) != errno. EAGAIN:
+                if e.args[0] != errno. EAGAIN:
                     raise IOError(*e.args)
 
     def __del__(self):
@@ -524,6 +524,6 @@ def shutdown_safe(sock):
     except socket.error, e:
         # we don't care if the socket is already closed;
         # this will often be the case in an http server context
-        if get_errno(e) != errno.ENOTCONN:
+        if e.args[0] != errno.ENOTCONN:
             raise
 

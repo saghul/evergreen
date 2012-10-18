@@ -7,7 +7,6 @@ import sys
 import errno
 time = __import__('time')
 
-from eventlet.support import get_errno
 from eventlet.hub import trampoline
 from eventlet.greenio import set_nonblocking, GreenSocket, SOCKET_CLOSED, CONNECT_ERR, CONNECT_SUCCESS
 orig_socket = __import__('socket')
@@ -75,13 +74,13 @@ class GreenSSLSocket(__ssl.SSLSocket):
             while True:
                 try:
                     return func(*a, **kw)
-                except SSLError, exc:
-                    if get_errno(exc) == SSL_ERROR_WANT_READ:
+                except SSLError, e:
+                    if e.args[0] == SSL_ERROR_WANT_READ:
                         trampoline(self,
                                    read=True,
                                    timeout=self.gettimeout(),
                                    timeout_exc=timeout_exc('timed out'))
-                    elif get_errno(exc) == SSL_ERROR_WANT_WRITE:
+                    elif e.args[0] == SSL_ERROR_WANT_WRITE:
                         trampoline(self,
                                    write=True,
                                    timeout=self.gettimeout(),
@@ -138,10 +137,10 @@ class GreenSSLSocket(__ssl.SSLSocket):
                 except orig_socket.error, e:
                     if self.act_non_blocking:
                         raise
-                    if get_errno(e) == errno.EWOULDBLOCK:
+                    if e.args[0] == errno.EWOULDBLOCK:
                         trampoline(self, write=True,
                                    timeout=self.gettimeout(), timeout_exc=timeout_exc('timed out'))
-                    if get_errno(e) in SOCKET_CLOSED:
+                    if e.args[0] in SOCKET_CLOSED:
                         return ''
                     raise
 
@@ -161,10 +160,10 @@ class GreenSSLSocket(__ssl.SSLSocket):
                 except orig_socket.error, e:
                     if self.act_non_blocking:
                         raise
-                    if get_errno(e) == errno.EWOULDBLOCK:
+                    if e.args[0] == errno.EWOULDBLOCK:
                         trampoline(self, read=True,
                                    timeout=self.gettimeout(), timeout_exc=timeout_exc('timed out'))
-                    if get_errno(e) in SOCKET_CLOSED:
+                    if e.args[0] in SOCKET_CLOSED:
                         return ''
                     raise
 
@@ -204,10 +203,10 @@ class GreenSSLSocket(__ssl.SSLSocket):
                 while True:
                     try:
                         return real_connect(self, addr)
-                    except orig_socket.error, exc:
-                        if get_errno(exc) in CONNECT_ERR:
+                    except orig_socket.error, e:
+                        if e.args[0] in CONNECT_ERR:
                             trampoline(self, write=True)
-                        elif get_errno(exc) in CONNECT_SUCCESS:
+                        elif e.args[0] in CONNECT_SUCCESS:
                             return
                         else:
                             raise
@@ -216,11 +215,11 @@ class GreenSSLSocket(__ssl.SSLSocket):
                 while True:
                     try:
                         real_connect(self, addr)
-                    except orig_socket.error, exc:
-                        if get_errno(exc) in CONNECT_ERR:
+                    except orig_socket.error, e:
+                        if e.args[0] in CONNECT_ERR:
                             trampoline(self, write=True,
                                        timeout=end-time.time(), timeout_exc=timeout_exc('timed out'))
-                        elif get_errno(exc) in CONNECT_SUCCESS:
+                        elif e.args[0] in CONNECT_SUCCESS:
                             return
                         else:
                             raise
@@ -261,7 +260,7 @@ class GreenSSLSocket(__ssl.SSLSocket):
                     set_nonblocking(newsock)
                     break
                 except orig_socket.error, e:
-                    if get_errno(e) != errno.EWOULDBLOCK:
+                    if e.args[0] != errno.EWOULDBLOCK:
                         raise
                     trampoline(self, read=True, timeout=self.gettimeout(),
                                    timeout_exc=timeout_exc('timed out'))

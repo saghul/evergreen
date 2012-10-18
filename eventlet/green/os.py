@@ -3,7 +3,6 @@ import errno
 socket = __import__("socket")
 
 from eventlet import greenio
-from eventlet.support import get_errno
 from eventlet import greenthread
 from eventlet.hub import trampoline
 from eventlet.patcher import slurp_properties
@@ -34,10 +33,10 @@ def read(fd, n):
         try:
             return __original_read__(fd, n)
         except (OSError, IOError), e:
-            if get_errno(e) != errno.EAGAIN:
+            if e.args[0] != errno.EAGAIN:
                 raise
         except socket.error, e:
-            if get_errno(e) == errno.EPIPE:
+            if e.args[0] == errno.EPIPE:
                 return ''
             raise
         trampoline(fd, read=True)
@@ -52,10 +51,10 @@ def write(fd, st):
         try:
             return __original_write__(fd, st)
         except (OSError, IOError), e:
-            if get_errno(e) != errno.EAGAIN:
+            if e.args[0] != errno.EAGAIN:
                 raise
         except socket.error, e:
-            if get_errno(e) != errno.EPIPE:
+            if e.args[0] != errno.EPIPE:
                 raise
         trampoline(fd, write=True)
 
