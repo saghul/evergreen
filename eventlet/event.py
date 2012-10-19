@@ -154,7 +154,7 @@ class Event(object):
         self._exc = exc
         hub = get_hub()
         for waiter in self._waiters:
-            hub.schedule_call_global(
+            hub.schedule_call(
                 0, self._do_send, self._result, self._exc, waiter)
 
     def _do_send(self, result, exc, waiter):

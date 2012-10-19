@@ -20,13 +20,13 @@ class Result(object):
         assert not self._done, 'This Result has already been used'
         self._value = value
         if self._g is not None:
-            eventlet.core.hub.schedule_call_global(0, self._g.switch, self)
+            eventlet.core.hub.next_tick(self._g.switch, self)
 
     def set_exception(self, typ, val, tb):
         assert not self._done, 'This Result has already been used'
         self._exc = (typ, val, tb)
         if self._g is not None:
-            eventlet.core.hub.schedule_call_global(0, self._g.switch, self)
+            eventlet.core.hub.next_tick(self._g.switch, self)
 
     def get(self):
         assert not self._done, 'This Result has already been used'

@@ -348,7 +348,7 @@ class LightQueue(object):
 
     def _schedule_unlock(self):
         if self._event_unlock is None:
-            self._event_unlock = get_hub().schedule_call_global(0, self._unlock)
+            self._event_unlock = get_hub().schedule_call(0, self._unlock)
 
 
 class ItemWaiter(Waiter):
