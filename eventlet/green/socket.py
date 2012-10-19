@@ -1,33 +1,72 @@
-import os
-import sys
-from eventlet.hub import get_hub
-__import__('eventlet.green._socket_nodns')
-__socket = sys.modules['eventlet.green._socket_nodns']
 
+import warnings
+
+import eventlet
+
+__socket    = __import__('socket')
 __all__     = __socket.__all__
-__patched__ = __socket.__patched__ + ['gethostbyname', 'getaddrinfo', 'create_connection',]
+__patched__ = ['fromfd', 'socketpair', 'ssl', 'socket', 'gethostbyname', 'gethostbyname_ex', 'getnameinfo', 'getaddrinfo', 'create_connection',]
 
 from eventlet.patcher import slurp_properties
-slurp_properties(__socket, globals(), srckeys=dir(__socket))
+slurp_properties(__socket, globals(), ignore=__patched__, srckeys=dir(__socket))
+
+from eventlet.greenio import GreenSocket as socket
+from eventlet.greenio import _GLOBAL_DEFAULT_TIMEOUT
+from eventlet.greenio import _fileobject
 
 
-greendns = None
-if os.environ.get("EVENTLET_NO_GREENDNS",'').lower() != "yes":
-    try:
-        from eventlet.support import greendns
-    except ImportError, ex:
-        pass
+try:
+    __original_fromfd__ = __socket.fromfd
+    def fromfd(*args):
+        return socket(__original_fromfd__(*args))
+except AttributeError:
+    pass
 
-if greendns:
-    gethostbyname = greendns.gethostbyname
-    getaddrinfo = greendns.getaddrinfo
-    gethostbyname_ex = greendns.gethostbyname_ex
-    getnameinfo = greendns.getnameinfo
-    __patched__ = __patched__ + ['gethostbyname_ex', 'getnameinfo']
 
-def create_connection(address,
-                      timeout=_GLOBAL_DEFAULT_TIMEOUT,
-                      source_address=None):
+try:
+    __original_socketpair__ = __socket.socketpair
+    def socketpair(*args):
+        one, two = __original_socketpair__(*args)
+        return socket(one), socket(two)
+except AttributeError:
+    pass
+
+
+try:
+    from eventlet.green import ssl as ssl_module
+    sslerror = __socket.sslerror
+    __socket.ssl
+    def ssl(sock, certificate=None, private_key=None):
+        warnings.warn("socket.ssl() is deprecated.  Use ssl.wrap_socket() instead.", DeprecationWarning, stacklevel=2)
+        return ssl_module.sslwrap_simple(sock, private_key, certificate)
+except AttributeError:
+    # if the real socket module doesn't have the ssl method or sslerror
+    # exception, we can't emulate them
+    pass
+
+
+def _run_in_threadpool(func, *args, **kw):
+    hub = eventlet.core.hub
+    return hub.threadpool.spawn(func, *args, **kw)
+
+
+def gethostbyname(*args, **kw):
+    return _run_in_threadpool(__socket.gethostbyname, *args, **kw).get()
+
+
+def gethostbyname_ex(*args, **kw):
+    return _run_in_threadpool(__socket.gethostbyname_ex, *args, **kw).get()
+
+
+def getnameinfo(*args, **kw):
+    return _run_in_threadpool(__socket.getnameinfo, *args, **kw).get()
+
+
+def getaddrinfo(*args, **kw):
+    return _run_in_threadpool(__socket.getaddrinfo, *args, **kw).get()
+
+
+def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT, source_address=None):
     """Connect to *address* and return the socket object.
 
     Convenience function.  Connect to *address* (a 2-tuple ``(host,
@@ -51,11 +90,8 @@ def create_connection(address,
                 sock.bind(source_address)
             sock.connect(sa)
             return sock
-
         except error, msg:
             if sock is not None:
                 sock.close()
-
     raise error, msg
-
 
