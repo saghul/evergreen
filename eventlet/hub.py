@@ -233,20 +233,6 @@ class Hub(object):
             sys.stderr.flush()
             clear_sys_exc_info()
 
-    def schedule_call_local(self, seconds, cb, *args, **kw):
-        """Schedule a callable to be called after 'seconds' seconds have
-        elapsed. Cancel the timer if greenlet has exited.
-            seconds: The number of seconds to wait.
-            cb: The callable to call after the given time.
-            *args: Arguments to pass to the callable when called.
-            **kw: Keyword arguments to pass to the callable when called.
-        """
-        current = greenlet.getcurrent()
-        if current is self.greenlet:
-            return self.schedule_call_global(seconds, cb, *args, **kw)
-        timer = LocalTimer(self, seconds, cb, *args, **kw)
-        return timer
-
     def schedule_call_global(self, seconds, cb, *args, **kw):
         """Schedule a callable to be called after 'seconds' seconds have
         elapsed. The timer will NOT be canceled if the current greenlet has
@@ -386,40 +372,4 @@ class Timer(object):
             self._timer = None
             self._hub._timers.remove(self)
             self._hub = None
-
-
-class LocalTimer(Timer):
-
-    def __init__(self, hub, seconds, cb, *args, **kw):
-        self.greenlet = greenlet.getcurrent()
-        super(LocalTimer, self).__init__(hub, seconds, cb, *args, **kw)
-
-    @property
-    def pending(self):
-        if self.greenlet is None or self.greenlet.dead:
-            return False
-        return not self.called
-
-    def _timer_cb(self, timer):
-        if not self.called:
-            self.called = True
-            if self.greenlet is not None and self.greenlet.dead:
-                return
-            try:
-                self.cb()
-            except SYSTEM_EXCEPTIONS:
-                raise
-            except:
-                self._hub.squelch_timer_exception(self, sys.exc_info())
-                clear_sys_exc_info()
-            finally:
-                self.cb = None
-                self._timer.close()
-                self._timer = None
-                self._hub._timers.remove(self)
-                self._hub = None
-
-    def cancel(self):
-        self.greenlet = None
-        super(LocalTimer, self).cancel()
 
