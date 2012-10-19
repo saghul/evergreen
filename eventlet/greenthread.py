@@ -5,7 +5,7 @@ import eventlet
 from eventlet import event
 from eventlet.support import greenlets as greenlet
 
-__all__ = ['getcurrent', 'sleep', 'spawn', 'spawn_after', 'spawn_after_local', 'GreenThread']
+__all__ = ['getcurrent', 'sleep', 'suspend', 'spawn', 'spawn_after', 'spawn_after_local', 'GreenThread']
 
 getcurrent = greenlet.getcurrent
 
@@ -28,6 +28,17 @@ def sleep(seconds=0):
         hub.switch()
     finally:
         timer.cancel()
+
+
+def suspend():
+    """Suspend the current coroutine and yield control to the Hub for at least one
+    event loop iteration
+    """
+    hub = eventlet.core.hub
+    current = eventlet.core.current_greenlet
+    assert hub.greenlet is not current, 'do not call blocking functions from the mainloop'
+    hub.next_tick(current.switch)
+    hub.switch()
 
 
 def spawn(func, *args, **kwargs):
