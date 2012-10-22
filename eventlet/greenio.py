@@ -486,25 +486,6 @@ class GreenPipe(_fileobject):
             raise IOError(*e.args)
 
 
-# import SSL module here so we can refer to greenio.SSL.exceptionclass
-try:
-    from OpenSSL import SSL
-except ImportError:
-    # pyOpenSSL not installed, define exceptions anyway for convenience
-    class SSL(object):
-        class WantWriteError(object):
-            pass
-
-        class WantReadError(object):
-            pass
-
-        class ZeroReturnError(object):
-            pass
-
-        class SysCallError(object):
-            pass
-
-
 def shutdown_safe(sock):
     """ Shuts down the socket. This is a convenience method for
     code that wants to gracefully handle regular sockets, SSL.Connection
