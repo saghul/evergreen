@@ -3,7 +3,6 @@ import functools
 import pyuv
 
 import eventlet
-from eventlet.support import greenlets as greenlet
 
 
 Null = object()

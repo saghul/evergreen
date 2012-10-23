@@ -5,7 +5,6 @@ from eventlet import event
 from eventlet import greenthread
 from eventlet import queue
 from eventlet import semaphore
-from eventlet.support import greenlets as greenlet
 
 __all__ = ['GreenPool', 'GreenPile']
 
@@ -58,7 +57,7 @@ class GreenPool(object):
         """
         # if reentering an empty pool, don't try to wait on a coroutine freeing
         # itself -- instead, just execute in the current coroutine
-        current = greenthread.getcurrent()
+        current = greenthread.get_current()
         if self.sem.locked() and current in self.coroutines_running:
             # a bit hacky to use the GT without switching to it
             gt = greenthread.GreenThread(current)
@@ -75,7 +74,7 @@ class GreenPool(object):
 
     def waitall(self):
         """Waits until all greenthreads in the pool are finished working."""
-        assert greenthread.getcurrent() not in self.coroutines_running, \
+        assert greenthread.get_current() not in self.coroutines_running, \
                           "Calling waitall() from within one of the "\
                           "GreenPool's greenthreads will never terminate."
         if self.running():

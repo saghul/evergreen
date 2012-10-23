@@ -6,7 +6,7 @@ __all__ = ['get_ident', 'local']
 
 def get_ident():
     """ Returns ``id()`` of current greenlet.  Useful for debugging."""
-    return id(greenthread.getcurrent())
+    return id(greenthread.get_current())
 
 
 # the entire purpose of this class is to store off the constructor
@@ -19,13 +19,13 @@ class _localbase(object):
         object.__setattr__(self, '_local__greens', weakref.WeakKeyDictionary())
         if (args or kw) and (cls.__init__ is object.__init__):
             raise TypeError("Initialization arguments are not supported")
-        return self        
-        
+        return self
+
 def _patch(thrl):
     greens = object.__getattribute__(thrl, '_local__greens')
     # until we can store the localdict on greenlets themselves,
     # we store it in _local__greens on the local object
-    cur = greenthread.getcurrent()
+    cur = greenthread.get_current()
     if cur not in greens:
         # must be the first time we've seen this greenlet, call __init__
         greens[cur] = {}
@@ -34,7 +34,7 @@ def _patch(thrl):
             args, kw = object.__getattribute__(thrl, '_local__args')
             thrl.__init__(*args, **kw)
     object.__setattr__(thrl, '__dict__', greens[cur])
-        
+
 
 class local(_localbase):
     def __getattribute__(self, attr):

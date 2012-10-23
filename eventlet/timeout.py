@@ -21,7 +21,6 @@
 # THE SOFTWARE.from eventlet.support import greenlets as greenlet
 
 import eventlet
-from eventlet.support import greenlets as greenlet
 
 __all__ = ['Timeout']
 

@@ -1,5 +1,7 @@
+
+import greenlet
+
 from eventlet.hub import get_hub
-from eventlet.support import greenlets as greenlet
 
 __all__ = ['Event']
 

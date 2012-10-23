@@ -1,8 +1,8 @@
 """Implements the standard threading module, using greenthreads."""
+import greenlet
 from eventlet import patcher
 from eventlet.green import thread
 from eventlet.green import time
-from eventlet.support import greenlets as greenlet
 
 __patched__ = ['_start_new_thread', '_allocate_lock', '_get_ident', '_sleep',
                'local', 'stack_size', 'Lock', 'currentThread',
@@ -98,7 +98,7 @@ def current_thread():
         active = __threadlocal.active
     except AttributeError:
         active = __threadlocal.active = {}
-    
+
     try:
         t = active[id(g)]
     except KeyError:

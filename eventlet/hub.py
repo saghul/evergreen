@@ -4,10 +4,12 @@ import pyuv
 import sys
 import traceback
 
+import greenlet
+
 from collections import deque
 from functools import partial
 
-from eventlet.support import greenlets as greenlet, clear_sys_exc_info
+from eventlet.support import clear_sys_exc_info
 from eventlet.threadpool import ThreadPool
 from eventlet import patcher
 time = patcher.original('time')

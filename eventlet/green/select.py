@@ -1,6 +1,6 @@
 __select = __import__('select')
 error = __select.error
-from eventlet.greenthread import getcurrent
+from eventlet.greenthread import get_current
 from eventlet.hub import get_hub
 
 __patched__ = ['select']
@@ -31,7 +31,7 @@ def select(read_list, write_list, error_list, timeout=None):
             raise TypeError("Expected number for timeout")
     hub = get_hub()
     t = None
-    current = getcurrent()
+    current = get_current()
     assert hub.greenlet is not current, 'do not call blocking functions from the mainloop'
     ds = {}
     for r in read_list:

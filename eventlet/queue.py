@@ -49,7 +49,7 @@ from Queue import Full, Empty
 
 _NONE = object()
 from eventlet.hub import get_hub
-from eventlet.greenthread import getcurrent
+from eventlet.greenthread import get_current
 from eventlet.event import Event
 from eventlet.timeout import Timeout
 
@@ -101,7 +101,7 @@ class Waiter(object):
         """Wake up the greenlet that is calling wait() currently (if there is one).
         Can only be called from Hub's greenlet.
         """
-        assert getcurrent() is get_hub().greenlet, "Can only use Waiter.switch method from the mainloop"
+        assert get_current() is get_hub().greenlet, "Can only use Waiter.switch method from the mainloop"
         if self.greenlet is not None:
             try:
                 self.greenlet.switch(value)
@@ -112,7 +112,7 @@ class Waiter(object):
         """Make greenlet calling wait() wake up (if there is a wait()).
         Can only be called from Hub's greenlet.
         """
-        assert getcurrent() is get_hub().greenlet, "Can only use Waiter.switch method from the mainloop"
+        assert get_current() is get_hub().greenlet, "Can only use Waiter.switch method from the mainloop"
         if self.greenlet is not None:
             try:
                 self.greenlet.throw(*throw_args)
@@ -124,7 +124,7 @@ class Waiter(object):
         """Wait until switch() or throw() is called.
         """
         assert self.greenlet is None, 'This Waiter is already used by %r' % (self.greenlet, )
-        self.greenlet = getcurrent()
+        self.greenlet = get_current()
         try:
             return get_hub().switch()
         finally:
@@ -228,7 +228,7 @@ class LightQueue(object):
             self._put(item)
             if self.getters:
                 self._schedule_unlock()
-        elif not block and get_hub().greenlet is getcurrent():
+        elif not block and get_hub().greenlet is get_current():
             # we're in the mainloop, so we cannot wait; we can switch() to other greenlets though
             # find a getter and deliver an item to it
             while self.getters:
@@ -278,7 +278,7 @@ class LightQueue(object):
             if self.putters:
                 self._schedule_unlock()
             return self._get()
-        elif not block and get_hub().greenlet is getcurrent():
+        elif not block and get_hub().greenlet is get_current():
             # special case to make get_nowait() runnable in the mainloop greenlet
             # there are no items in the queue; try to fix the situation by unlocking putters
             while self.putters:

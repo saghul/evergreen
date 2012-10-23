@@ -65,12 +65,12 @@ class Semaphore(object):
         if not blocking and self.locked():
             return False
         if self.counter <= 0:
-            self._waiters.add(greenthread.getcurrent())
+            self._waiters.add(greenthread.get_current())
             try:
                 while self.counter <= 0:
                     get_hub().switch()
             finally:
-                self._waiters.discard(greenthread.getcurrent())
+                self._waiters.discard(greenthread.get_current())
         self.counter -= 1
         return True
 

@@ -1,13 +1,13 @@
 import sys
 
 import eventlet
+import greenlet
 
 from eventlet import event
-from eventlet.support import greenlets as greenlet
 
 __all__ = ['getcurrent', 'sleep', 'suspend', 'spawn', 'spawn_after', 'GreenThread']
 
-getcurrent = greenlet.getcurrent
+get_current = greenlet.getcurrent
 
 def sleep(seconds=0):
     """Yield control to another eligible coroutine until at least *seconds* have
