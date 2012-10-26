@@ -4,10 +4,9 @@ import pyuv
 import sys
 import traceback
 
-import greenlet
-
 from collections import deque
 from functools import partial
+from greenlet import greenlet, getcurrent, GreenletExit
 
 from eventlet.support import clear_sys_exc_info
 from eventlet.threadpool import ThreadPool
@@ -19,7 +18,6 @@ _threadlocal = threading.local()
 __all__ = ["get_hub", "trampoline"]
 
 
-SYSTEM_EXCEPTIONS = (KeyboardInterrupt, SystemExit)
 READ  = 'READ'
 WRITE = 'WRITE'
 
@@ -68,7 +66,7 @@ noop = FdListener(READ, 0, lambda x: None)
 class DebugListener(FdListener):
     def __init__(self, evtype, fileno, cb):
         self.where_called = traceback.format_stack()
-        self.greenlet = greenlet.getcurrent()
+        self.greenlet = getcurrent()
         super(DebugListener, self).__init__(evtype, fileno, cb)
     def __repr__(self):
         return "DebugListener(%r, %r, %r, %r)\n%sEndDebugFdListener" % (
@@ -91,10 +89,13 @@ class Waker(object):
 
 
 class Hub(object):
+    SYSTEM_ERROR = (KeyboardInterrupt, SystemExit, SystemError)
+    NOT_ERROR = (GreenletExit, SystemExit)
 
     def __init__(self):
-        self.greenlet = greenlet.greenlet(self.run)
+        self.greenlet = greenlet(self.run)
         self.loop = pyuv.Loop()
+        self.loop.excepthook = self.handle_error
         self.threadpool = ThreadPool(self)
 
         self._listeners = {READ:{}, WRITE:{}}
@@ -134,46 +135,23 @@ class Hub(object):
         evtype = listener.evtype
         self._listeners[evtype].pop(fileno, None)
 
-    def remove_descriptor(self, fileno):
-        """ Completely remove all listeners for this fileno.  For internal use
-        only."""
-        listeners = []
-        listeners.append(self._listeners[READ].pop(fileno, noop))
-        listeners.append(self._listeners[WRITE].pop(fileno, noop))
-        for listener in listeners:
-            try:
-                listener.cb(fileno)
-            except Exception:
-                self.squelch_generic_exception(sys.exc_info())
-
     def switch(self):
-        cur = greenlet.getcurrent()
+        cur = getcurrent()
         assert cur is not self.greenlet, 'Cannot switch to MAINLOOP from MAINLOOP'
         switch_out = getattr(cur, 'switch_out', None)
         if switch_out is not None:
             try:
                 switch_out()
             except:
-                self.squelch_generic_exception(sys.exc_info())
+                self.handle_error(*sys.exc_info())
         if self.greenlet.dead:
-            self.greenlet = greenlet.greenlet(self.run)
+            self.greenlet = greenlet(self.run)
         try:
             if self.greenlet.parent is not cur:
                 cur.parent = self.greenlet
         except ValueError:
             pass  # gets raised if there is a greenlet parent cycle
-        clear_sys_exc_info()
         return self.greenlet.switch()
-
-    def squelch_exception(self, fileno, exc_info):
-        traceback.print_exception(*exc_info)
-        sys.stderr.write("Removing descriptor: %r\n" % (fileno,))
-        sys.stderr.flush()
-        try:
-            self.remove_descriptor(fileno)
-        except Exception, e:
-            sys.stderr.write("Exception while removing descriptor! %r\n" % (e,))
-            sys.stderr.flush()
 
     def next_tick(self, func, *args, **kw):
         self._tick_callbacks.append(partial(func, *args, **kw))
@@ -192,13 +170,7 @@ class Hub(object):
         try:
             self.running = True
             while not self.stopping:
-                try:
-                    self.loop.run_once()
-                except SYSTEM_EXCEPTIONS:
-                    raise
-                except:
-                    import traceback
-                    traceback.print_exc()
+                self.loop.run_once()
         finally:
             self.running = False
             self.stopping = False
@@ -218,22 +190,10 @@ class Hub(object):
         if self.running:
             self.stopping = True
         if wait:
-            assert self.greenlet is not greenlet.getcurrent(), "Can't abort with wait from inside the hub's greenlet."
+            assert self.greenlet is not getcurrent(), "Can't abort with wait from inside the hub's greenlet."
             # wakeup loop, in case it was busy polling
             self._waker.wake()
             self.switch()
-
-    def squelch_generic_exception(self, exc_info):
-        if self.debug_exceptions:
-            traceback.print_exception(*exc_info)
-            sys.stderr.flush()
-            clear_sys_exc_info()
-
-    def squelch_timer_exception(self, timer, exc_info):
-        if self.debug_exceptions:
-            traceback.print_exception(*exc_info)
-            sys.stderr.flush()
-            clear_sys_exc_info()
 
     def schedule_call(self, seconds, cb, *args, **kw):
         """Schedule a callable to be called after 'seconds' seconds have
@@ -251,7 +211,7 @@ class Hub(object):
         from eventlet.timeout import Timeout
         timeout_exc = timeout_exc or Timeout
         t = None
-        current = greenlet.getcurrent()
+        current = getcurrent()
         assert self.greenlet is not current, 'do not call blocking functions from the mainloop'
         assert not (read and write), 'not allowed to trampoline for reading and writing'
         try:
@@ -289,7 +249,28 @@ class Hub(object):
         else:
             self.lclass = FdListener
 
+    # internal
+
+    def handle_error(self, typ, value, tb):
+        if not issubclass(type, self.NOT_ERROR):
+            traceback.print_exception(typ, value, tb)
+            clear_sys_exc_info()
+        if issubclass(type, self.SYSTEM_ERROR):
+            current = getcurrent()
+            if current is self.greenlet:
+                self.greenlet.parent.throw(typ, value)
+            else:
+                # TODO: maybe next_tick is not such a good idea
+                self.next_tick(self.parent.throw, typ, value)
+        del tb
+
     # private
+
+    def _remove_descriptor(self, fileno):
+        """ Completely remove all listeners for this fileno.  For internal use only."""
+        listeners = [self._listeners[READ].pop(fileno, noop), self._listeners[WRITE].pop(fileno, noop)]
+        for listener in listeners:
+            listener.cb(fileno)
 
     def _cleanup_loop(self):
         def cb(handle):
@@ -306,20 +287,15 @@ class Hub(object):
         for f in queue:
             try:
                 f()
-            except SYSTEM_EXCEPTIONS:
-                raise
             except:
-                self.squelch_generic_exception(sys.exc_info())
-                clear_sys_exc_info()
+                self.handle_error(*sys.exc_info())
 
     def _poll_cb(self, listener, handle, error):
         try:
             listener.cb(listener.fileno)
-        except SYSTEM_EXCEPTIONS:
-            raise
         except:
-            self.squelch_exception(listener.fileno, sys.exc_info())
-            clear_sys_exc_info()
+            self.handle_error(*sys.exc_info())
+            self._remove_descriptor(listener.fileno)
 
     def _add_poll_handle(self, listener):
         handle = pyuv.Poll(self.loop, listener.fileno)
@@ -348,11 +324,6 @@ class Timer(object):
             self.called = True
             try:
                 self.cb()
-            except SYSTEM_EXCEPTIONS:
-                raise
-            except:
-                self._hub.squelch_timer_exception(self, sys.exc_info())
-                clear_sys_exc_info()
             finally:
                 self.cb = None
                 self._timer.close()
