@@ -254,7 +254,6 @@ class Hub(object):
     def handle_error(self, typ, value, tb):
         if not issubclass(type, self.NOT_ERROR):
             traceback.print_exception(typ, value, tb)
-            clear_sys_exc_info()
         if issubclass(type, self.SYSTEM_ERROR):
             current = getcurrent()
             if current is self.greenlet:
@@ -263,6 +262,7 @@ class Hub(object):
                 # TODO: maybe next_tick is not such a good idea
                 self.next_tick(self.parent.throw, typ, value)
         del tb
+        clear_sys_exc_info()
 
     # private
 
