@@ -59,7 +59,7 @@ def select(read_list, write_list, error_list, timeout=None):
         current.switch(([], [], []))
 
     if timeout is not None:
-        t = hub.schedule_call(timeout, on_timeout)
+        t = hub.call_later(timeout, on_timeout)
     try:
         for k, v in ds.iteritems():
             if v.get('read'):

@@ -23,7 +23,7 @@ def sleep(seconds=0):
     hub = eventlet.core.hub
     current = eventlet.core.current_greenlet
     assert hub.greenlet is not current, 'do not call blocking functions from the mainloop'
-    timer = hub.schedule_call(seconds, current.switch)
+    timer = hub.call_later(seconds, current.switch)
     try:
         hub.switch()
     finally:
@@ -76,7 +76,7 @@ def spawn_after(seconds, func, *args, **kwargs):
     """
     hub = eventlet.core.hub
     g = GreenThread(hub.greenlet)
-    hub.schedule_call(seconds, g.switch, func, args, kwargs)
+    hub.call_later(seconds, g.switch, func, args, kwargs)
     return g
 
 
@@ -190,6 +190,6 @@ def kill(g, *throw_args):
     current = eventlet.core.current_greenlet
     if current is not hub.greenlet:
         # arrange to wake the caller back up immediately
-        hub.schedule_call(0, current.switch)
+        hub.call_later(0, current.switch)
     g.throw(*throw_args)
 

@@ -57,9 +57,9 @@ class Timeout(BaseException):
         if self.seconds is None: # "fake" timeout (never expires)
             self.timer = None
         elif self.exception is None or isinstance(self.exception, bool): # timeout that raises self
-            self.timer = hub.schedule_call(self.seconds, current.throw, self)
+            self.timer = hub.call_later(self.seconds, current.throw, self)
         else: # regular timeout with user-provided exception
-            self.timer = hub.schedule_call(self.seconds, current.throw, self.exception)
+            self.timer = hub.call_later(self.seconds, current.throw, self.exception)
         return self
 
     @property

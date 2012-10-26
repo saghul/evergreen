@@ -195,7 +195,7 @@ class Hub(object):
             self._waker.wake()
             self.switch()
 
-    def schedule_call(self, seconds, cb, *args, **kw):
+    def call_later(self, seconds, cb, *args, **kw):
         """Schedule a callable to be called after 'seconds' seconds have
         elapsed. The timer will NOT be canceled if the current greenlet has
         exited before the timer fires.
@@ -219,7 +219,7 @@ class Hub(object):
         except AttributeError:
             fileno = fd
         if timeout is not None:
-            t = self.schedule_call(timeout, current.throw, timeout_exc)
+            t = self.call_later(timeout, current.throw, timeout_exc)
         try:
             if read:
                 listener = self.add(READ, fileno, current.switch)

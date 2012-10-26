@@ -86,7 +86,7 @@ class Semaphore(object):
         ignored"""
         self.counter += 1
         if self._waiters:
-            get_hub().schedule_call(0, self._do_acquire)
+            get_hub().call_later(0, self._do_acquire)
         return True
 
     def _do_acquire(self):
