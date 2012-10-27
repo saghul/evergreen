@@ -204,8 +204,7 @@ class Hub(object):
             *args: Arguments to pass to the callable when called.
             **kw: Keyword arguments to pass to the callable when called.
         """
-        timer = Timer(self, seconds, cb, *args, **kw)
-        return timer
+        return Timer(self, seconds, cb, *args, **kw)
 
     def wait_fd(self, fd, read=None, write=None, timeout=None, timeout_exc=None):
         from eventlet.timeout import Timeout
