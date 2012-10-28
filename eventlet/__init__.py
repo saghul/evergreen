@@ -14,8 +14,8 @@ kill = greenthread.kill
 
 Timeout = timeout.Timeout
 
-connect = convenience.connect
-listen = convenience.listen
+connect = net.connect
+listen = net.listen
 
 import eventlet.core
 core = eventlet.core.setup()
