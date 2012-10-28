@@ -10,9 +10,7 @@ __patched__ = ['fromfd', 'socketpair', 'ssl', 'socket', 'gethostbyname', 'gethos
 from eventlet.patcher import slurp_properties
 slurp_properties(__socket, globals(), ignore=__patched__, srckeys=dir(__socket))
 
-from eventlet.greenio import GreenSocket as socket
-from eventlet.greenio import _GLOBAL_DEFAULT_TIMEOUT
-from eventlet.greenio import _fileobject
+from eventlet.io import GreenSocket as socket, _GLOBAL_DEFAULT_TIMEOUT, _fileobject
 
 
 try:

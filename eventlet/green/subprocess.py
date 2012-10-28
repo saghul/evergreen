@@ -2,10 +2,9 @@ import errno
 import new
 
 import eventlet
-from eventlet import greenio
 from eventlet import patcher
-from eventlet.green import os
-from eventlet.green import select
+from eventlet.green import os, select
+from eventlet.io import GreenPipe
 
 patcher.inject('subprocess', globals(), ('select', select))
 subprocess_orig = __import__("subprocess")
@@ -27,8 +26,8 @@ class Popen(subprocess_orig.Popen):
             # eventlet.processes.Process.run() method.
             for attr in "stdin", "stdout", "stderr":
                 pipe = getattr(self, attr)
-                if pipe is not None and not type(pipe) == greenio.GreenPipe:
-                    wrapped_pipe = greenio.GreenPipe(pipe, pipe.mode, bufsize)
+                if pipe is not None and not type(pipe) is GreenPipe:
+                    wrapped_pipe = GreenPipe(pipe, pipe.mode, bufsize)
                     setattr(self, attr, wrapped_pipe)
         __init__.__doc__ = subprocess_orig.Popen.__init__.__doc__
 

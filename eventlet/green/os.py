@@ -2,9 +2,9 @@ os_orig = __import__("os")
 import errno
 socket = __import__("socket")
 
-from eventlet import greenio
 from eventlet import greenthread
 from eventlet.hub import trampoline
+from eventlet.io import GreenPipe
 from eventlet.patcher import slurp_properties
 
 __all__ = os_orig.__all__
@@ -20,7 +20,7 @@ def fdopen(fd, *args, **kw):
     if not isinstance(fd, int):
         raise TypeError('fd should be int, not %r' % fd)
     try:
-        return greenio.GreenPipe(fd, *args, **kw)
+        return GreenPipe(fd, *args, **kw)
     except IOError, e:
         raise OSError(*e.args)
 

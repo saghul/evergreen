@@ -8,7 +8,7 @@ import errno
 time = __import__('time')
 
 from eventlet.hub import trampoline
-from eventlet.greenio import set_nonblocking, GreenSocket, SOCKET_CLOSED, CONNECT_ERR, CONNECT_SUCCESS
+from eventlet.io import set_nonblocking, GreenSocket, SOCKET_CLOSED, CONNECT_ERR, CONNECT_SUCCESS
 orig_socket = __import__('socket')
 socket = orig_socket.socket
 if sys.version_info >= (2,7):
