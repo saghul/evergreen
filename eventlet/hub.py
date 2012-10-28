@@ -8,8 +8,8 @@ from collections import deque
 from functools import partial
 from greenlet import greenlet, getcurrent, GreenletExit
 
-from eventlet.support import clear_sys_exc_info
 from eventlet.threadpool import ThreadPool
+from eventlet.util import clear_sys_exc_info
 from eventlet import patcher
 time = patcher.original('time')
 threading = patcher.original('threading')
