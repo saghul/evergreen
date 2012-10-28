@@ -4,7 +4,7 @@ __version__ = ".".join(map(str, version_info))
 
 from eventlet import greenthread
 from eventlet import timeout
-from eventlet import convenience
+from eventlet import net
 
 sleep = greenthread.sleep
 suspend = greenthread.suspend
