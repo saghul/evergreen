@@ -116,18 +116,13 @@ class GreenThread(greenlet.greenlet):
         """
         self._exit_funcs = getattr(self, '_exit_funcs', [])
         self._exit_funcs.append((func, curried_args, curried_kwargs))
-        if self._exit_event.ready():
-            self._resolve_links()
+        # TODO: what to do if the event already fired?
 
     def main(self, function, args, kwargs):
         try:
             result = function(*args, **kwargs)
-        except:
-            self._exit_event.send_exception(*sys.exc_info())
-            self._resolve_links()
-            raise
-        else:
-            self._exit_event.send(result)
+        finally:
+            self._exit_event.set()
             self._resolve_links()
 
     def _resolve_links(self):
