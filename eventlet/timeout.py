@@ -44,7 +44,6 @@ class Timeout(BaseException):
         self.seconds = seconds
         self.exception = exception
         self.timer = None
-        self.start()
 
     def start(self):
         """Schedule the timeout.  This is called on construction, so
