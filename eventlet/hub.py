@@ -1,5 +1,4 @@
 
-import os
 import pyuv
 import sys
 import traceback
@@ -8,18 +7,16 @@ from collections import deque
 from functools import partial
 from greenlet import greenlet, getcurrent, GreenletExit
 
+from eventlet import patcher
+from eventlet.timeout import Timeout
 from eventlet.threadpool import ThreadPool
 from eventlet.util import clear_sys_exc_info
-from eventlet import patcher
-time = patcher.original('time')
-threading = patcher.original('threading')
-_threadlocal = threading.local()
 
 __all__ = ["get_hub", "trampoline"]
 
 
-READ  = 'READ'
-WRITE = 'WRITE'
+threading = patcher.original('threading')
+_threadlocal = threading.local()
 
 
 def get_hub():
@@ -32,7 +29,7 @@ def get_hub():
     return hub
 
 
-def trampoline(fd, read=None, write=None, timeout=None, timeout_exc=None):
+def trampoline(fd, read=False, write=False, timeout=None, timeout_exc=None):
     """Suspend the current coroutine until the given socket object or file
     descriptor is ready to *read*, ready to *write*, or the specified
     *timeout* elapses, depending on arguments specified.
@@ -49,33 +46,27 @@ def trampoline(fd, read=None, write=None, timeout=None, timeout_exc=None):
     return hub.wait_fd(fd, read, write, timeout, timeout_exc)
 
 
-class FdListener(object):
-    def __init__(self, evtype, fileno, cb):
-        assert (evtype is READ or evtype is WRITE)
+class FDListener(object):
+    evtype_map = {pyuv.UV_READABLE: 'read', pyuv.UV_WRITABLE: 'write'}
+
+    def __init__(self, hub, evtype, fileno, cb):
+        assert (evtype == pyuv.UV_READABLE or evtype == pyuv.UV_WRITABLE)
         self.evtype = evtype
-        self.fileno = fileno
+        self.fd = fileno
         self.cb = cb
+        self._handle = pyuv.Poll(hub.loop, fileno)
+
+    def start(self):
+        self._handle.start(self.evtype, self._poll_cb)
+
+    def stop(self):
+        self._handle.stop()
+
+    def _poll_cb(self, handle, events, error):
+        self.cb()
+
     def __repr__(self):
-        return "%s(%r, %r, %r)" % (type(self).__name__, self.evtype, self.fileno, self.cb)
-    __str__ = __repr__
-
-
-noop = FdListener(READ, 0, lambda x: None)
-
-# in debug mode, track the call site that created the listener
-class DebugListener(FdListener):
-    def __init__(self, evtype, fileno, cb):
-        self.where_called = traceback.format_stack()
-        self.greenlet = getcurrent()
-        super(DebugListener, self).__init__(evtype, fileno, cb)
-    def __repr__(self):
-        return "DebugListener(%r, %r, %r, %r)\n%sEndDebugFdListener" % (
-            self.evtype,
-            self.fileno,
-            self.cb,
-            self.greenlet,
-            ''.join(self.where_called))
-    __str__ = __repr__
+        return "%s(%r, %r, %r)" % (type(self).__name__, self.evtype_map[self.evtype], self.fileno, self.cb)
 
 
 class Waker(object):
@@ -96,11 +87,10 @@ class Hub(object):
         self.greenlet = greenlet(self.run)
         self.loop = pyuv.Loop()
         self.loop.excepthook = self.handle_error
+        self.listeners = {pyuv.UV_READABLE: {}, pyuv.UV_WRITABLE: {}}
         self.threadpool = ThreadPool(self)
 
-        self._listeners = {READ:{}, WRITE:{}}
         self._timers = set()
-        self._poll_handles = {}
         self._waker = Waker(self)
         self._tick_prepare = pyuv.Prepare(self.loop)
         self._tick_idle = pyuv.Idle(self.loop)
@@ -108,32 +98,6 @@ class Hub(object):
 
         self.stopping = False
         self.running = False
-        self.lclass = FdListener
-        self.debug_exceptions = True
-
-    def add(self, evtype, fileno, cb):
-        """ Signals an intent to or write a particular file descriptor.
-
-        The *evtype* argument is either the constant READ or WRITE.
-
-        The *fileno* argument is the file number of the file of interest.
-
-        The *cb* argument is the callback which will be called when the file
-        is ready for reading/writing.
-        """
-        listener = self.lclass(evtype, fileno, cb)
-        bucket = self._listeners[evtype]
-        if fileno in bucket:
-            raise RuntimeError("Second simultaneous %s on fileno %s " % (evtype, fileno))
-        bucket[fileno] = listener
-        self._add_poll_handle(listener)
-        return listener
-
-    def remove(self, listener):
-        self._remove_poll_handle(listener)
-        fileno = listener.fileno
-        evtype = listener.evtype
-        self._listeners[evtype].pop(fileno, None)
 
     def switch(self):
         cur = getcurrent()
@@ -206,13 +170,12 @@ class Hub(object):
         """
         return Timer(self, seconds, cb, *args, **kw)
 
-    def wait_fd(self, fd, read=None, write=None, timeout=None, timeout_exc=None):
-        from eventlet.timeout import Timeout
+    def wait_fd(self, fd, read=False, write=False, timeout=None, timeout_exc=None):
         timeout_exc = timeout_exc or Timeout
-        t = None
         current = getcurrent()
         assert self.greenlet is not current, 'do not call blocking functions from the mainloop'
         assert not (read and write), 'not allowed to trampoline for reading and writing'
+        assert any((read, write)), 'either read or write event needs to be specified'
         try:
             fileno = fd.fileno()
         except AttributeError:
@@ -220,33 +183,16 @@ class Hub(object):
         if timeout is not None:
             t = self.call_later(timeout, current.throw, timeout_exc)
         try:
-            if read:
-                listener = self.add(READ, fileno, current.switch)
-            elif write:
-                listener = self.add(WRITE, fileno, current.switch)
+            event = pyuv.UV_READABLE if read else pyuv.UV_WRITABLE
+            listener = FDListener(self, event, fileno, current.switch)
+            self._add_listener(listener)
             try:
                 return self.switch()
             finally:
-                self.remove(listener)
+                self._remove_listener(listener)
         finally:
-            if t is not None:
+            if timeout is not None:
                 t.cancel()
-
-    # for debugging:
-
-    @property
-    def readers(self):
-        return self._listeners[READ].values()
-
-    @property
-    def writers(self):
-        return self._listeners[WRITE].values()
-
-    def set_debug_listeners(self, value):
-        if value:
-            self.lclass = DebugListener
-        else:
-            self.lclass = FdListener
 
     # internal
 
@@ -265,11 +211,16 @@ class Hub(object):
 
     # private
 
-    def _remove_descriptor(self, fileno):
-        """ Completely remove all listeners for this fileno.  For internal use only."""
-        listeners = [self._listeners[READ].pop(fileno, noop), self._listeners[WRITE].pop(fileno, noop)]
-        for listener in listeners:
-            listener.cb(fileno)
+    def _add_listener(self, listener):
+        for evtype in self.listeners.iterkeys():
+            if listener.fd in self.listeners[evtype]:
+                raise RuntimeError('listener already registered for %s events for fd %d' % (FDListener.evtype_map[evtype], listener.fd))
+        self.listeners[listener.evtype][listener.fd] = listener
+        listener.start()
+
+    def _remove_listener(self, listener):
+        listener.stop()
+        self.listeners[listener.evtype].pop(listener.fd, None)
 
     def _cleanup_loop(self):
         def cb(handle):
@@ -288,24 +239,6 @@ class Hub(object):
                 f()
             except:
                 self.handle_error(*sys.exc_info())
-
-    def _poll_cb(self, listener, handle, error):
-        try:
-            listener.cb(listener.fileno)
-        except:
-            self.handle_error(*sys.exc_info())
-            self._remove_descriptor(listener.fileno)
-
-    def _add_poll_handle(self, listener):
-        handle = pyuv.Poll(self.loop, listener.fileno)
-        self._poll_handles[listener.fileno] = handle
-        events = pyuv.UV_READABLE if listener.evtype == READ else pyuv.UV_WRITABLE
-        handle.start(events, partial(listener.cb, listener))
-
-    def _remove_poll_handle(self, listener):
-        handle = self._poll_handles.pop(listener.fileno, None)
-        if handle is not None:
-            handle.close()
 
 
 class Timer(object):
