@@ -30,15 +30,17 @@ def sleep(seconds=0):
         timer.cancel()
 
 
-def suspend():
+def suspend(switch_back=True):
     """Suspend the current coroutine and yield control to the Hub for at least one
-    event loop iteration
+    event loop iteration. If switch back is False, the current task will not be resumed
+    afterwards.
     """
     hub = eventlet.core.hub
     current = eventlet.core.current_greenlet
     assert hub.greenlet is not current, 'do not call blocking functions from the mainloop'
-    hub.next_tick(current.switch)
-    hub.switch()
+    if switch_back:
+        hub.next_tick(current.switch)
+    return hub.switch()
 
 
 def spawn(func, *args, **kwargs):
