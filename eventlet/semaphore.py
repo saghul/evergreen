@@ -1,5 +1,6 @@
-from eventlet import greenthread
-from eventlet.hub import get_hub
+
+import eventlet
+
 
 class Semaphore(object):
     """An unbounded semaphore.
@@ -20,29 +21,17 @@ class Semaphore(object):
     """
 
     def __init__(self, value=1):
-        self.counter  = value
         if value < 0:
-            raise ValueError("Semaphore must be initialized with a positive "
-                             "number, got %s" % value)
-        self._waiters = set()
+            raise ValueError("Semaphore must be initialized with a positive number, got %s" % value)
+        self.__counter = value
+        self.__waiters = set()
 
     def __repr__(self):
         params = (self.__class__.__name__, hex(id(self)),
-                  self.counter, len(self._waiters))
+                  self.__counter, len(self.__waiters))
         return '<%s at %s c=%s _w[%s]>' % params
 
-    def __str__(self):
-        params = (self.__class__.__name__, self.counter, len(self._waiters))
-        return '<%s c=%s _w[%s]>' % params
-
-    def locked(self):
-        """Returns true if a call to acquire would block."""
-        return self.counter <= 0
-
-    def bounded(self):
-        """Returns False; for consistency with
-        :class:`~eventlet.semaphore.CappedSemaphore`."""
-        return False
+    __str__ = __repr__
 
     def acquire(self, blocking=True):
         """Acquire a semaphore.
@@ -62,57 +51,42 @@ class Semaphore(object):
         When invoked with blocking set to false, do not block. If a call without
         an argument would block, return false immediately; otherwise, do the
         same thing as when called without arguments, and return true."""
-        if not blocking and self.locked():
+        if not blocking and self.__counter <= 0:
             return False
-        if self.counter <= 0:
-            self._waiters.add(greenthread.get_current())
+        current = eventlet.core.current_greenlet
+        if self.__counter <= 0:
+            self.__waiters.add(current)
             try:
-                while self.counter <= 0:
-                    get_hub().switch()
+                while self.__counter <= 0:
+                    eventlet.suspend(switch_back=False)
             finally:
-                self._waiters.discard(greenthread.get_current())
-        self.counter -= 1
+                self.__waiters.discard(current)
+        self.__counter -= 1
         return True
 
     def __enter__(self):
         self.acquire()
 
-    def release(self, blocking=True):
+    def release(self):
         """Release a semaphore, incrementing the internal counter by one. When
         it was zero on entry and another thread is waiting for it to become
         larger than zero again, wake up that thread.
-
-        The *blocking* argument is for consistency with CappedSemaphore and is
         ignored"""
-        self.counter += 1
-        if self._waiters:
-            get_hub().call_later(0, self._do_acquire)
-        return True
+        self.__counter += 1
+        if self.__waiters:
+            hub = eventlet.core.hub
+            hub.next_tick(self._notify_waiters)
 
-    def _do_acquire(self):
-        if self._waiters and self.counter>0:
-            waiter = self._waiters.pop()
+    def _notify_waiters(self):
+        if self.__waiters and self.__counter > 0:
+            waiter = self.__waiters.pop()
             waiter.switch()
 
     def __exit__(self, typ, val, tb):
         self.release()
 
-    @property
-    def balance(self):
-        """An integer value that represents how many new calls to
-        :meth:`acquire` or :meth:`release` would be needed to get the counter to
-        0.  If it is positive, then its value is the number of acquires that can
-        happen before the next acquire would block.  If it is negative, it is
-        the negative of the number of releases that would be required in order
-        to make the counter 0 again (one more release would push the counter to
-        1 and unblock acquirers).  It takes into account how many greenthreads
-        are currently blocking in :meth:`acquire`.
-        """
-        # positive means there are free items
-        # zero means there are no free items but nobody has requested one
-        # negative means there are requests for items, but no items
-        return self.counter - len(self._waiters)
 
+#TODO: check these other clasess below
 
 class BoundedSemaphore(Semaphore):
     """A bounded semaphore checks to make sure its current value doesn't exceed
