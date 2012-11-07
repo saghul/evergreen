@@ -90,12 +90,6 @@ class Timeout(BaseException):
             self.__class__.__name__, hex(id(self)), self.seconds, exception, pending)
 
     def __str__(self):
-        """
-        >>> raise Timeout
-        Traceback (most recent call last):
-            ...
-        Timeout
-        """
         if self.seconds is None:
             return ''
         if self.seconds == 1:
