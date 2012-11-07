@@ -58,7 +58,6 @@ class Timeout(BaseException):
             self.timer = hub.call_later(self.seconds, current.throw, self)
         else: # regular timeout with user-provided exception
             self.timer = hub.call_later(self.seconds, current.throw, self.exception)
-        return self
 
     @property
     def pending(self):
