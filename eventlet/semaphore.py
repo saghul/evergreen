@@ -64,9 +64,6 @@ class Semaphore(object):
         self.__counter -= 1
         return True
 
-    def __enter__(self):
-        self.acquire()
-
     def release(self):
         """Release a semaphore, incrementing the internal counter by one. When
         it was zero on entry and another thread is waiting for it to become
@@ -81,6 +78,9 @@ class Semaphore(object):
         if self.__waiters and self.__counter > 0:
             waiter = self.__waiters.pop()
             waiter.switch()
+
+    def __enter__(self):
+        self.acquire()
 
     def __exit__(self, typ, val, tb):
         self.release()
