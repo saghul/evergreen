@@ -1,6 +1,8 @@
 
 import eventlet
 
+from eventlet.timeout import Timeout
+
 
 class Semaphore(object):
     """An unbounded semaphore.
@@ -33,7 +35,7 @@ class Semaphore(object):
 
     __str__ = __repr__
 
-    def acquire(self, blocking=True):
+    def acquire(self, blocking=True, timeout=None):
         """Acquire a semaphore.
 
         When invoked without arguments: if the internal counter is larger than
@@ -51,18 +53,29 @@ class Semaphore(object):
         When invoked with blocking set to false, do not block. If a call without
         an argument would block, return false immediately; otherwise, do the
         same thing as when called without arguments, and return true."""
-        if not blocking and self.__counter <= 0:
+        if self.__counter > 0:
+            self.__counter -= 1
+            return True
+        elif not blocking:
             return False
-        current = eventlet.core.current_greenlet
-        if self.__counter <= 0:
+        else:
+            current = eventlet.core.current_greenlet
             self.__waiters.add(current)
+            timer = Timeout(timeout)
+            timer.start()
             try:
                 while self.__counter <= 0:
                     eventlet.suspend(switch_back=False)
+            except Timeout, e:
+                if e is timer:
+                    return False
+                raise
+            else:
+                self.__counter -= 1
+                return True
             finally:
+                timer.cancel()
                 self.__waiters.discard(current)
-        self.__counter -= 1
-        return True
 
     def release(self):
         """Release a semaphore, incrementing the internal counter by one. When
