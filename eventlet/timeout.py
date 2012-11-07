@@ -49,8 +49,7 @@ class Timeout(BaseException):
         """Schedule the timeout.  This is called on construction, so
         it should not be called explicitly, unless the timer has been
         canceled."""
-        assert not self.pending, \
-               '%r is already started; to restart it, cancel it first' % self
+        assert not self.pending, '%r is already started; to restart it, cancel it first' % self
         hub = eventlet.core.hub
         current = eventlet.core.current_greenlet
         if self.seconds is None: # "fake" timeout (never expires)
