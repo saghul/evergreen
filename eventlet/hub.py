@@ -267,9 +267,6 @@ class Timer(object):
     def pending(self):
         return not self.called
 
-    def schedule(self):
-        raise NotImplementedError
-
     def cancel(self):
         if not self.called:
             self.called = True
