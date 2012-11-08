@@ -246,8 +246,7 @@ class _Timer(object):
     def __init__(self, hub, seconds, cb, *args, **kw):
         self.called = False
         self.cb = partial(cb, *args, **kw)
-        self._hub = hub
-        self._hub._timers.add(self)
+        hub._timers.add(self)
         self._timer = pyuv.Timer(hub.loop)
         self._timer.start(self._timer_cb, seconds, 0.0)
 
@@ -260,8 +259,8 @@ class _Timer(object):
                 self.cb = None
                 self._timer.close()
                 self._timer = None
-                self._hub._timers.remove(self)
-                self._hub = None
+                hub = get_hub()
+                hub._timers.remove(self)
 
     @property
     def pending(self):
@@ -272,6 +271,6 @@ class _Timer(object):
             self.called = True
             self._timer.close()
             self._timer = None
-            self._hub._timers.remove(self)
-            self._hub = None
+            hub = get_hub()
+            hub._timers.remove(self)
 
