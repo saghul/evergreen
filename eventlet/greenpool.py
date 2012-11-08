@@ -4,7 +4,7 @@ import traceback
 from eventlet import event
 from eventlet import greenthread
 from eventlet import queue
-from eventlet import semaphore
+from eventlet import lock
 
 __all__ = ['GreenPool', 'GreenPile']
 
@@ -15,7 +15,7 @@ class GreenPool(object):
     def __init__(self, size=1000):
         self.size = size
         self.coroutines_running = set()
-        self.sem = semaphore.Semaphore(size)
+        self.sem = lock.Semaphore(size)
         self.no_coros_running = event.Event()
 
     def resize(self, new_size):

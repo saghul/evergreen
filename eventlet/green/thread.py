@@ -3,7 +3,7 @@
 __thread = __import__('thread')
 import greenlet
 from eventlet import greenthread
-from eventlet.semaphore import Semaphore as LockType
+from eventlet.lock import Semaphore as LockType
 
 __patched__ = ['get_ident', 'start_new_thread', 'start_new', 'allocate_lock',
                'allocate', 'exit', 'interrupt_main', 'stack_size', '_local',
