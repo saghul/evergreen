@@ -168,7 +168,7 @@ class Hub(object):
             *args: Arguments to pass to the callable when called.
             **kw: Keyword arguments to pass to the callable when called.
         """
-        return Timer(self, seconds, cb, *args, **kw)
+        return _Timer(self, seconds, cb, *args, **kw)
 
     def wait_fd(self, fd, read=False, write=False, timeout=None, timeout_exc=None):
         timeout_exc = timeout_exc or Timeout
@@ -241,7 +241,7 @@ class Hub(object):
                 self.handle_error(*sys.exc_info())
 
 
-class Timer(object):
+class _Timer(object):
 
     def __init__(self, hub, seconds, cb, *args, **kw):
         self.called = False
