@@ -6,18 +6,12 @@ from eventlet.green import socket
 __all__ = ['connect', 'listen']
 
 
-def _check_ip_family(family, address):
+def _check_ip_family(address, family):
     try:
         socket.inet_pton(family, address)
     except socket.error:
         return False
     return True
-
-def is_ipv4(address):
-    return _check_ip_family(socket.AF_INET, address)
-
-def is_ipv6(address):
-    return _check_ip_family(socket.AF_INET6, address)
 
 
 def connect(endpoint, source_address=None):
@@ -86,13 +80,13 @@ def listen(endpoint, backlog=128):
         if not port.isdigit():
             raise ValueError('invalid port specified: %s' % port)
         socktype = socket.SOCK_STREAM if proto=='tcp' else socket.SOCK_DGRAM
-        if is_ipv4(addr):
+        if _check_ip_family(addr, socket.AF_INET):
             sock = socket.socket(socket.AF_INET, socktype)
-        elif is_ipv6(addr):
+        elif _check_ip_family(addr, socket.AF_INET6):
             sock = socket.socket(socket.AF_INET6, socktype)
         else:
-            sock = socket.socket(socket.AF_INET, socktype)
-        if sys.platform[:3] != "win":
+            raise RuntimeError('invalid address specified: %s' % addr)
+        if sys.platform == 'win32':
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         sock.bind((addr, int(port)))
     elif proto == 'unix':
