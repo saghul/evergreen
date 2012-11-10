@@ -49,19 +49,19 @@ def _run_in_threadpool(func, *args, **kw):
 
 
 def gethostbyname(*args, **kw):
-    return _run_in_threadpool(__socket.gethostbyname, *args, **kw).get()
+    return _run_in_threadpool(__socket.gethostbyname, *args, **kw).result()
 
 
 def gethostbyname_ex(*args, **kw):
-    return _run_in_threadpool(__socket.gethostbyname_ex, *args, **kw).get()
+    return _run_in_threadpool(__socket.gethostbyname_ex, *args, **kw).result()
 
 
 def getnameinfo(*args, **kw):
-    return _run_in_threadpool(__socket.getnameinfo, *args, **kw).get()
+    return _run_in_threadpool(__socket.getnameinfo, *args, **kw).result()
 
 
 def getaddrinfo(*args, **kw):
-    return _run_in_threadpool(__socket.getaddrinfo, *args, **kw).get()
+    return _run_in_threadpool(__socket.getaddrinfo, *args, **kw).result()
 
 
 def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT, source_address=None):
