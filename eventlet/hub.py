@@ -8,6 +8,7 @@ from functools import partial
 from greenlet import greenlet, getcurrent, GreenletExit
 
 from eventlet import patcher
+from eventlet.futures import Future
 from eventlet.timeout import Timeout
 from eventlet.threadpool import ThreadPool
 from eventlet.util import clear_sys_exc_info
@@ -79,6 +80,23 @@ class Waker(object):
         self._async.send()
 
 
+class _SchedulledCall(object):
+
+    def __init__(self, future, func, args, kwargs):
+        self.future = future
+        self.cb = partial(func, *args, **kwargs)
+
+    def __call__(self):
+        if not self.future.set_running_or_notify_cancel():
+            return
+        try:
+            result = self.cb()
+        except BaseException as e:
+            self.future.set_exception(e)
+        else:
+            self.future.set_result(result)
+
+
 class Hub(object):
     SYSTEM_ERROR = (KeyboardInterrupt, SystemExit, SystemError)
     NOT_ERROR = (GreenletExit, SystemExit)
@@ -122,6 +140,15 @@ class Hub(object):
         if not self._tick_prepare.active:
             self._tick_prepare.start(self._tick_cb)
             self._tick_idle.start(lambda handle: handle.stop())
+
+    def schedulle_call(self, func, *args, **kw):
+        future = Future()
+        item = _SchedulledCall(future, func, args, kw)
+        self._tick_callbacks.append(item)
+        if not self._tick_prepare.active:
+            self._tick_prepare.start(self._tick_cb)
+            self._tick_idle.start(lambda handle: handle.stop())
+        return future
 
     def run(self, *a, **kw):
         """Run the runloop until abort is called.
