@@ -118,19 +118,16 @@ class Hub(object):
         self.running = False
 
     def switch(self):
-        cur = getcurrent()
-        assert cur is not self.greenlet, 'Cannot switch to MAINLOOP from MAINLOOP'
-        switch_out = getattr(cur, 'switch_out', None)
+        current = getcurrent()
+        assert current is not self.greenlet, 'Cannot switch to MAINLOOP from MAINLOOP'
+        switch_out = getattr(current, 'switch_out', None)
         if switch_out is not None:
-            try:
-                switch_out()
-            except:
-                self.handle_error(*sys.exc_info())
+            switch_out()
         if self.greenlet.dead:
             self.greenlet = greenlet(self.run)
         try:
-            if self.greenlet.parent is not cur:
-                cur.parent = self.greenlet
+            if self.greenlet.parent is not current:
+                current.parent = self.greenlet
         except ValueError:
             pass  # gets raised if there is a greenlet parent cycle
         return self.greenlet.switch()
@@ -234,7 +231,6 @@ class Hub(object):
                 # TODO: maybe next_tick is not such a good idea
                 self.next_tick(self.parent.throw, typ, value)
         del tb
-        clear_sys_exc_info()
 
     # private
 
@@ -262,10 +258,7 @@ class Hub(object):
         self._tick_idle.stop()
         queue, self._tick_callbacks = self._tick_callbacks, deque()
         for f in queue:
-            try:
-                f()
-            except:
-                self.handle_error(*sys.exc_info())
+            f()
 
 
 class _Timer(object):
