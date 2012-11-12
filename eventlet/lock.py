@@ -3,6 +3,8 @@ import eventlet
 
 from eventlet.timeout import Timeout
 
+__all__ = ['Semaphore', 'BoundedSemaphore', 'RLock', 'Condition']
+
 
 class Semaphore(object):
     """An unbounded semaphore.
