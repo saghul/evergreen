@@ -11,7 +11,6 @@ from eventlet import patcher
 from eventlet.futures import Future
 from eventlet.timeout import Timeout
 from eventlet.threadpool import ThreadPool
-from eventlet.util import clear_sys_exc_info
 
 __all__ = ["get_hub", "trampoline"]
 
