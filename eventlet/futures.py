@@ -1,4 +1,6 @@
 
+import six
+
 from eventlet.lock import Condition
 
 
@@ -106,7 +108,7 @@ class Future(object):
     def _get_result(self):
         if self._exception:
             if isinstance(self._exception, tuple):
-                raise self._exception[0], self._exception[1], self._exception[2]
+                six.reraise(*self._exception)
             else:
                 raise self._exception
         else:

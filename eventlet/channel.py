@@ -1,4 +1,5 @@
 
+import six
 import eventlet
 
 from collections import deque
@@ -12,8 +13,7 @@ class Bomb(object):
         self.traceback = exp_traceback
 
     def raise_(self):
-        # TODO: use six.reraise
-        raise self.type, self.type(self.value), self.traceback
+        six.reraise(self.type, self.value, self.traceback)
 
 
 class Channel(object):
