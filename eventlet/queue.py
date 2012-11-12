@@ -1,451 +1,272 @@
-# Copyright (c) 2009 Denis Bilenko, denis.bilenko at gmail com
-# Copyright (c) 2010 Eventlet Contributors (see AUTHORS)
-# and licensed under the MIT license:
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documentation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to whom the Software is
-# furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
+"""A multi-producer, multi-consumer queue."""
 
-"""Synchronized queues.
-
-The :mod:`eventlet.queue` module implements multi-producer, multi-consumer
-queues that work across greenlets, with the API similar to the classes found in
-the standard :mod:`Queue` and :class:`multiprocessing <multiprocessing.Queue>`
-modules.
-
-A major difference is that queues in this module operate as channels when
-initialized with *maxsize* of zero. In such case, both :meth:`Queue.empty`
-and :meth:`Queue.full` return ``True`` and :meth:`Queue.put` always blocks until
-a call to :meth:`Queue.get` retrieves the item.
-
-An interesting difference, made possible because of greenthreads, is
-that :meth:`Queue.qsize`, :meth:`Queue.empty`, and :meth:`Queue.full` *can* be
-used as indicators of whether the subsequent :meth:`Queue.get`
-or :meth:`Queue.put` will not block.  The new methods :meth:`Queue.getting`
-and :meth:`Queue.putting` report on the number of greenthreads blocking
-in :meth:`put <Queue.put>` or :meth:`get <Queue.get>` respectively.
-"""
-
-import sys
 import heapq
-import collections
-import traceback
-from Queue import Full, Empty
+
+from collections import deque
+from time import time as _time
+
+import eventlet
+
+from eventlet.lock import Semaphore, Condition
+
+__all__ = ['Empty', 'Full', 'Queue', 'PriorityQueue', 'LifoQueue']
 
 
-_NONE = object()
-from eventlet.hub import get_hub
-from eventlet.greenthread import get_current
-from eventlet.event import Event
-from eventlet.timeout import Timeout
+class Empty(Exception):
+    "Exception raised by Queue.get(block=0)/get_nowait()."
+    pass
 
-__All__ = ['Queue', 'PriorityQueue', 'LifoQueue', 'LightQueue', 'Full', 'Empty']
 
-class Waiter(object):
-    """A low level synchronization class.
+class Full(Exception):
+    "Exception raised by Queue.put(block=0)/put_nowait()."
+    pass
 
-    Wrapper around greenlet's ``switch()`` and ``throw()`` calls that makes them safe:
 
-    * switching will occur only if the waiting greenlet is executing :meth:`wait`
-      method currently. Otherwise, :meth:`switch` and :meth:`throw` are no-ops.
-    * any error raised in the greenlet is handled inside :meth:`switch` and :meth:`throw`
+class Queue(object):
+    """Create a queue object with a given maximum size.
 
-    The :meth:`switch` and :meth:`throw` methods must only be called from the :class:`Hub` greenlet.
-    The :meth:`wait` method must be called from a greenlet other than :class:`Hub`.
+    If maxsize is <= 0, the queue size is infinite.
     """
-    __slots__ = ['greenlet']
-
-    def __init__(self):
-        self.greenlet = None
-
-    def __repr__(self):
-        if self.waiting:
-            waiting = ' waiting'
-        else:
-            waiting = ''
-        return '<%s at %s%s greenlet=%r>' % (type(self).__name__, hex(id(self)), waiting, self.greenlet)
-
-    def __str__(self):
-        """
-        >>> print Waiter()
-        <Waiter greenlet=None>
-        """
-        if self.waiting:
-            waiting = ' waiting'
-        else:
-            waiting = ''
-        return '<%s%s greenlet=%s>' % (type(self).__name__, waiting, self.greenlet)
-
-    def __nonzero__(self):
-        return self.greenlet is not None
-
-    @property
-    def waiting(self):
-        return self.greenlet is not None
-
-    def switch(self, value=None):
-        """Wake up the greenlet that is calling wait() currently (if there is one).
-        Can only be called from Hub's greenlet.
-        """
-        assert get_current() is get_hub().greenlet, "Can only use Waiter.switch method from the mainloop"
-        if self.greenlet is not None:
-            try:
-                self.greenlet.switch(value)
-            except:
-                traceback.print_exc()
-
-    def throw(self, *throw_args):
-        """Make greenlet calling wait() wake up (if there is a wait()).
-        Can only be called from Hub's greenlet.
-        """
-        assert get_current() is get_hub().greenlet, "Can only use Waiter.switch method from the mainloop"
-        if self.greenlet is not None:
-            try:
-                self.greenlet.throw(*throw_args)
-            except:
-                traceback.print_exc()
-
-    # XXX should be renamed to get() ? and the whole class is called Receiver?
-    def wait(self):
-        """Wait until switch() or throw() is called.
-        """
-        assert self.greenlet is None, 'This Waiter is already used by %r' % (self.greenlet, )
-        self.greenlet = get_current()
-        try:
-            return get_hub().switch()
-        finally:
-            self.greenlet = None
-
-
-class LightQueue(object):
-    """
-    This is a variant of Queue that behaves mostly like the standard
-    :class:`Queue`.  It differs by not supporting the
-    :meth:`task_done <Queue.task_done>` or :meth:`join <Queue.join>` methods,
-    and is a little faster for not having that overhead.
-    """
-
-    def __init__(self, maxsize=None):
-        if maxsize is None or maxsize < 0: #None is not comparable in 3.x
-            self.maxsize = None
-        else:
-            self.maxsize = maxsize
-        self.getters = set()
-        self.putters = set()
-        self._event_unlock = None
+    def __init__(self, maxsize=0):
+        self.maxsize = maxsize
         self._init(maxsize)
+        # mutex must be held whenever the queue is mutating.  All methods
+        # that acquire mutex must release it before returning.  mutex
+        # is shared between the three conditions, so acquiring and
+        # releasing the conditions also acquires and releases mutex.
+        self.mutex = Semaphore()
+        # Notify not_empty whenever an item is added to the queue; a
+        # thread waiting to get is notified then.
+        self.not_empty = Condition(self.mutex)
+        # Notify not_full whenever an item is removed from the queue;
+        # a thread waiting to put is notified then.
+        self.not_full = Condition(self.mutex)
+        # Notify all_tasks_done whenever the number of unfinished tasks
+        # drops to zero; thread waiting to join() is notified to resume
+        self.all_tasks_done = Condition(self.mutex)
+        self.unfinished_tasks = 0
 
-    # QQQ make maxsize into a property with setter that schedules unlock if necessary
+    def task_done(self):
+        """Indicate that a formerly enqueued task is complete.
 
-    def _init(self, maxsize):
-        self.queue = collections.deque()
+        Used by Queue consumer threads.  For each get() used to fetch a task,
+        a subsequent call to task_done() tells the queue that the processing
+        on the task is complete.
 
-    def _get(self):
-        return self.queue.popleft()
+        If a join() is currently blocking, it will resume when all items
+        have been processed (meaning that a task_done() call was received
+        for every item that had been put() into the queue).
 
-    def _put(self, item):
-        self.queue.append(item)
+        Raises a ValueError if called more times than there were items
+        placed in the queue.
+        """
+        assert eventlet.core.hub.greenlet is not eventlet.core.current_greenlet, 'do not call blocking functions from the mainloop'
+        self.all_tasks_done.acquire()
+        try:
+            unfinished = self.unfinished_tasks - 1
+            if unfinished <= 0:
+                if unfinished < 0:
+                    raise ValueError('task_done() called too many times')
+                self.all_tasks_done.notify_all()
+            self.unfinished_tasks = unfinished
+        finally:
+            self.all_tasks_done.release()
 
-    def __repr__(self):
-        return '<%s at %s %s>' % (type(self).__name__, hex(id(self)), self._format())
+    def join(self):
+        """Blocks until all items in the Queue have been gotten and processed.
 
-    def __str__(self):
-        return '<%s %s>' % (type(self).__name__, self._format())
+        The count of unfinished tasks goes up whenever an item is added to the
+        queue. The count goes down whenever a consumer thread calls task_done()
+        to indicate the item was retrieved and all work on it is complete.
 
-    def _format(self):
-        result = 'maxsize=%r' % (self.maxsize, )
-        if getattr(self, 'queue', None):
-            result += ' queue=%r' % self.queue
-        if self.getters:
-            result += ' getters[%s]' % len(self.getters)
-        if self.putters:
-            result += ' putters[%s]' % len(self.putters)
-        if self._event_unlock is not None:
-            result += ' unlocking'
-        return result
+        When the count of unfinished tasks drops to zero, join() unblocks.
+        """
+        assert eventlet.core.hub.greenlet is not eventlet.core.current_greenlet, 'do not call blocking functions from the mainloop'
+        self.all_tasks_done.acquire()
+        try:
+            while self.unfinished_tasks:
+                self.all_tasks_done.wait()
+        finally:
+            self.all_tasks_done.release()
 
     def qsize(self):
-        """Return the size of the queue."""
-        return len(self.queue)
-
-    def resize(self, size):
-        """Resizes the queue's maximum size.
-
-        If the size is increased, and there are putters waiting, they may be woken up."""
-        if self.maxsize is not None and (size is None or size > self.maxsize): # None is not comparable in 3.x
-            # Maybe wake some stuff up
-            self._schedule_unlock()
-        self.maxsize = size
-
-    def putting(self):
-        """Returns the number of greenthreads that are blocked waiting to put
-        items into the queue."""
-        return len(self.putters)
-
-    def getting(self):
-        """Returns the number of greenthreads that are blocked waiting on an
-        empty queue."""
-        return len(self.getters)
+        """Return the approximate size of the queue (not reliable!)."""
+        assert eventlet.core.hub.greenlet is not eventlet.core.current_greenlet, 'do not call blocking functions from the mainloop'
+        self.mutex.acquire()
+        n = self._qsize()
+        self.mutex.release()
+        return n
 
     def empty(self):
-        """Return ``True`` if the queue is empty, ``False`` otherwise."""
-        return not self.qsize()
+        """Return True if the queue is empty, False otherwise (not reliable!).
+
+        This method is likely to be removed at some point.  Use qsize() == 0
+        as a direct substitute, but be aware that either approach risks a race
+        condition where a queue can grow before the result of empty() or
+        qsize() can be used.
+
+        To create code that needs to wait for all queued tasks to be
+        completed, the preferred technique is to use the join() method.
+
+        """
+        assert eventlet.core.hub.greenlet is not eventlet.core.current_greenlet, 'do not call blocking functions from the mainloop'
+        self.mutex.acquire()
+        n = not self._qsize()
+        self.mutex.release()
+        return n
 
     def full(self):
-        """Return ``True`` if the queue is full, ``False`` otherwise.
+        """Return True if the queue is full, False otherwise (not reliable!).
 
-        ``Queue(None)`` is never full.
+        This method is likely to be removed at some point.  Use qsize() >= n
+        as a direct substitute, but be aware that either approach risks a race
+        condition where a queue can shrink before the result of full() or
+        qsize() can be used.
+
         """
-        return self.maxsize is not None and self.qsize() >= self.maxsize # None is not comparable in 3.x
+        assert eventlet.core.hub.greenlet is not eventlet.core.current_greenlet, 'do not call blocking functions from the mainloop'
+        self.mutex.acquire()
+        n = 0 < self.maxsize <= self._qsize()
+        self.mutex.release()
+        return n
 
     def put(self, item, block=True, timeout=None):
         """Put an item into the queue.
 
-        If optional arg *block* is true and *timeout* is ``None`` (the default),
-        block if necessary until a free slot is available. If *timeout* is
-        a positive number, it blocks at most *timeout* seconds and raises
-        the :class:`Full` exception if no free slot was available within that time.
-        Otherwise (*block* is false), put an item on the queue if a free slot
-        is immediately available, else raise the :class:`Full` exception (*timeout*
+        If optional args 'block' is true and 'timeout' is None (the default),
+        block if necessary until a free slot is available. If 'timeout' is
+        a positive number, it blocks at most 'timeout' seconds and raises
+        the Full exception if no free slot was available within that time.
+        Otherwise ('block' is false), put an item on the queue if a free slot
+        is immediately available, else raise the Full exception ('timeout'
         is ignored in that case).
         """
-        if self.maxsize is None or self.qsize() < self.maxsize:
-            # there's a free slot, put an item right away
+        assert eventlet.core.hub.greenlet is not eventlet.core.current_greenlet, 'do not call blocking functions from the mainloop'
+        self.not_full.acquire()
+        try:
+            if self.maxsize > 0:
+                if not block:
+                    if self._qsize() >= self.maxsize:
+                        raise Full
+                elif timeout is None:
+                    while self._qsize() >= self.maxsize:
+                        self.not_full.wait()
+                elif timeout < 0:
+                    raise ValueError("'timeout' must be a positive number")
+                else:
+                    endtime = _time() + timeout
+                    while self._qsize() >= self.maxsize:
+                        remaining = endtime - _time()
+                        if remaining <= 0.0:
+                            raise Full
+                        self.not_full.wait(remaining)
             self._put(item)
-            if self.getters:
-                self._schedule_unlock()
-        elif not block and get_hub().greenlet is get_current():
-            # we're in the mainloop, so we cannot wait; we can switch() to other greenlets though
-            # find a getter and deliver an item to it
-            while self.getters:
-                getter = self.getters.pop()
-                if getter:
-                    self._put(item)
-                    item = self._get()
-                    getter.switch(item)
-                    return
-            raise Full
-        elif block:
-            waiter = ItemWaiter(item)
-            self.putters.add(waiter)
-            timeout = Timeout(timeout, Full)
-            try:
-                if self.getters:
-                    self._schedule_unlock()
-                result = waiter.wait()
-                assert result is waiter, "Invalid switch into Queue.put: %r" % (result, )
-                if waiter.item is not _NONE:
-                    self._put(item)
-            finally:
-                timeout.cancel()
-                self.putters.discard(waiter)
-        else:
-            raise Full
+            self.unfinished_tasks += 1
+            self.not_empty.notify()
+        finally:
+            self.not_full.release()
 
     def put_nowait(self, item):
         """Put an item into the queue without blocking.
 
         Only enqueue the item if a free slot is immediately available.
-        Otherwise raise the :class:`Full` exception.
+        Otherwise raise the Full exception.
         """
-        self.put(item, False)
+        return self.put(item, False)
 
     def get(self, block=True, timeout=None):
         """Remove and return an item from the queue.
 
-        If optional args *block* is true and *timeout* is ``None`` (the default),
-        block if necessary until an item is available. If *timeout* is a positive number,
-        it blocks at most *timeout* seconds and raises the :class:`Empty` exception
-        if no item was available within that time. Otherwise (*block* is false), return
-        an item if one is immediately available, else raise the :class:`Empty` exception
-        (*timeout* is ignored in that case).
+        If optional args 'block' is true and 'timeout' is None (the default),
+        block if necessary until an item is available. If 'timeout' is
+        a positive number, it blocks at most 'timeout' seconds and raises
+        the Empty exception if no item was available within that time.
+        Otherwise ('block' is false), return an item if one is immediately
+        available, else raise the Empty exception ('timeout' is ignored
+        in that case).
         """
-        if self.qsize():
-            if self.putters:
-                self._schedule_unlock()
-            return self._get()
-        elif not block and get_hub().greenlet is get_current():
-            # special case to make get_nowait() runnable in the mainloop greenlet
-            # there are no items in the queue; try to fix the situation by unlocking putters
-            while self.putters:
-                putter = self.putters.pop()
-                if putter:
-                    putter.switch(putter)
-                    if self.qsize():
-                        return self._get()
-            raise Empty
-        elif block:
-            waiter = Waiter()
-            timeout = Timeout(timeout, Empty)
-            try:
-                self.getters.add(waiter)
-                if self.putters:
-                    self._schedule_unlock()
-                return waiter.wait()
-            finally:
-                self.getters.discard(waiter)
-                timeout.cancel()
-        else:
-            raise Empty
+        assert eventlet.core.hub.greenlet is not eventlet.core.current_greenlet, 'do not call blocking functions from the mainloop'
+        self.not_empty.acquire()
+        try:
+            if not block:
+                if not self._qsize():
+                    raise Empty
+            elif timeout is None:
+                while not self._qsize():
+                    self.not_empty.wait()
+            elif timeout < 0:
+                raise ValueError("'timeout' must be a positive number")
+            else:
+                endtime = _time() + timeout
+                while not self._qsize():
+                    remaining = endtime - _time()
+                    if remaining <= 0.0:
+                        raise Empty
+                    self.not_empty.wait(remaining)
+            item = self._get()
+            self.not_full.notify()
+            return item
+        finally:
+            self.not_empty.release()
 
     def get_nowait(self):
         """Remove and return an item from the queue without blocking.
 
         Only get an item if one is immediately available. Otherwise
-        raise the :class:`Empty` exception.
+        raise the Empty exception.
         """
         return self.get(False)
 
-    def _unlock(self):
-        try:
-            while True:
-                if self.qsize() and self.getters:
-                    getter = self.getters.pop()
-                    if getter:
-                        try:
-                            item = self._get()
-                        except:
-                            getter.throw(*sys.exc_info())
-                        else:
-                            getter.switch(item)
-                elif self.putters and self.getters:
-                    putter = self.putters.pop()
-                    if putter:
-                        getter = self.getters.pop()
-                        if getter:
-                            item = putter.item
-                            putter.item = _NONE # this makes greenlet calling put() not to call _put() again
-                            self._put(item)
-                            item = self._get()
-                            getter.switch(item)
-                            putter.switch(putter)
-                        else:
-                            self.putters.add(putter)
-                elif self.putters and (self.getters or self.maxsize is None or self.qsize() < self.maxsize):
-                    putter = self.putters.pop()
-                    putter.switch(putter)
-                else:
-                    break
-        finally:
-            self._event_unlock = None # QQQ maybe it's possible to obtain this info from libevent?
-            # i.e. whether this event is pending _OR_ currently executing
-        # testcase: 2 greenlets: while True: q.put(q.get()) - nothing else has a change to execute
-        # to avoid this, schedule unlock with timer(0, ...) once in a while
+    # Override these methods to implement other queue organizations
+    # (e.g. stack or priority queue).
+    # These will only be called with appropriate locks held
 
-    def _schedule_unlock(self):
-        if self._event_unlock is None:
-            self._event_unlock = get_hub().call_later(0, self._unlock)
+    # Initialize the queue representation
+    def _init(self, maxsize):
+        self.queue = deque()
 
+    def _qsize(self):
+        return len(self.queue)
 
-class ItemWaiter(Waiter):
-    __slots__ = ['item']
-
-    def __init__(self, item):
-        Waiter.__init__(self)
-        self.item = item
-
-
-class Queue(LightQueue):
-    '''Create a queue object with a given maximum size.
-
-    If *maxsize* is less than zero or ``None``, the queue size is infinite.
-
-    ``Queue(0)`` is a channel, that is, its :meth:`put` method always blocks
-    until the item is delivered. (This is unlike the standard :class:`Queue`,
-    where 0 means infinite size).
-
-    In all other respects, this Queue class resembled the standard library,
-    :class:`Queue`.
-    '''
-    def __init__(self, maxsize=None):
-        LightQueue.__init__(self, maxsize)
-        self.unfinished_tasks = 0
-        self._cond = Event()
-
-    def _format(self):
-        result = LightQueue._format(self)
-        if self.unfinished_tasks:
-            result += ' tasks=%s _cond=%s' % (self.unfinished_tasks, self._cond)
-        return result
-
+    # Put a new item in the queue
     def _put(self, item):
-        LightQueue._put(self, item)
-        self._put_bookkeeping()
+        self.queue.append(item)
 
-    def _put_bookkeeping(self):
-        self.unfinished_tasks += 1
-        if self._cond.ready():
-            self._cond.reset()
-
-    def task_done(self):
-        '''Indicate that a formerly enqueued task is complete. Used by queue consumer threads.
-        For each :meth:`get <Queue.get>` used to fetch a task, a subsequent call to :meth:`task_done` tells the queue
-        that the processing on the task is complete.
-
-        If a :meth:`join` is currently blocking, it will resume when all items have been processed
-        (meaning that a :meth:`task_done` call was received for every item that had been
-        :meth:`put <Queue.put>` into the queue).
-
-        Raises a :exc:`ValueError` if called more times than there were items placed in the queue.
-        '''
-
-        if self.unfinished_tasks <= 0:
-            raise ValueError('task_done() called too many times')
-        self.unfinished_tasks -= 1
-        if self.unfinished_tasks == 0:
-            self._cond.send(None)
-
-    def join(self):
-        '''Block until all items in the queue have been gotten and processed.
-
-        The count of unfinished tasks goes up whenever an item is added to the queue.
-        The count goes down whenever a consumer thread calls :meth:`task_done` to indicate
-        that the item was retrieved and all work on it is complete. When the count of
-        unfinished tasks drops to zero, :meth:`join` unblocks.
-        '''
-        self._cond.wait()
+    # Get an item from the queue
+    def _get(self):
+        return self.queue.popleft()
 
 
 class PriorityQueue(Queue):
-    '''A subclass of :class:`Queue` that retrieves entries in priority order (lowest first).
+    '''Variant of Queue that retrieves open entries in priority order (lowest first).
 
-    Entries are typically tuples of the form: ``(priority number, data)``.
+    Entries are typically tuples of the form:  (priority number, data).
     '''
 
     def _init(self, maxsize):
         self.queue = []
 
-    def _put(self, item, heappush=heapq.heappush):
-        heappush(self.queue, item)
-        self._put_bookkeeping()
+    def _qsize(self):
+        return len(self.queue)
 
-    def _get(self, heappop=heapq.heappop):
-        return heappop(self.queue)
+    def _put(self, item):
+        heapq.heappush(self.queue, item)
+
+    def _get(self):
+        return heapq.heappop(self.queue)
 
 
 class LifoQueue(Queue):
-    '''A subclass of :class:`Queue` that retrieves most recently added entries first.'''
+    '''Variant of Queue that retrieves most recently added entries first.'''
 
     def _init(self, maxsize):
         self.queue = []
 
+    def _qsize(self):
+        return len(self.queue)
+
     def _put(self, item):
         self.queue.append(item)
-        self._put_bookkeeping()
 
     def _get(self):
         return self.queue.pop()
