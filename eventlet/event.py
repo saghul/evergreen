@@ -11,16 +11,13 @@ class Event(object):
     def __init__(self):
         self._flag = False
         self._waiters = set()
-        self._notifier = None
 
     def is_set(self):
         return self._flag
 
     def set(self):
         self._flag = True
-        if self._notifier is None:
-            self._notifier = object()
-            eventlet.core.hub.next_tick(self._notify_waiters)
+        eventlet.core.hub.next_tick(self._notify_waiters)
 
     def clear(self):
         self._flag = False
