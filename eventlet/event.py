@@ -17,7 +17,8 @@ class Event(object):
 
     def set(self):
         self._flag = True
-        eventlet.core.hub.next_tick(self._notify_waiters)
+        if self._waiters:
+            eventlet.core.hub.next_tick(self._notify_waiters)
 
     def clear(self):
         self._flag = False
