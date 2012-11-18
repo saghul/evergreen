@@ -195,7 +195,7 @@ def original(modname):
 
 already_patched = {}
 def monkey_patch(**on):
-    """Globally patches certain system modules to be greenthread-friendly.
+    """Globally patches certain system modules to be 'cooperaive'.
 
     The keyword arguments afford some control over which modules are patched.
     If no keyword arguments are supplied, all possible modules are patched.

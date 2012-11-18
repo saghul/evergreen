@@ -10,7 +10,7 @@ class Semaphore(object):
     """An unbounded semaphore.
     Optionally initialize with a resource *count*, then :meth:`acquire` and
     :meth:`release` resources as needed. Attempting to :meth:`acquire` when
-    *count* is zero suspends the calling greenthread until *count* becomes
+    *count* is zero suspends the calling task until *count* becomes
     nonzero again.
 
     This is API-compatible with :class:`threading.Semaphore`.

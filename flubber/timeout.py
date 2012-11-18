@@ -5,7 +5,7 @@ __all__ = ['Timeout']
 
 
 class Timeout(BaseException):
-    """Raises *exception* in the current greenthread after *timeout* seconds.
+    """Raises *exception* in the current task after *timeout* seconds.
 
     When *exception* is omitted or ``None``, the :class:`Timeout` instance
     itself is raised. If *seconds* is None, the timer is not scheduled, and is

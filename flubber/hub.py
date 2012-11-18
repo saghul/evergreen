@@ -172,7 +172,7 @@ class Hub(object):
 
         Set *wait* to True to cause abort to switch to the hub immediately and
         wait until it's finished processing.  Waiting for the hub will only
-        work from the main greenthread; all other greenthreads will become
+        work from the main greenlet; all other greenlets (tasks) will become
         unreachable.
         """
         if self.running:
