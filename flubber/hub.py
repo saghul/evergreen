@@ -117,7 +117,6 @@ class Hub(object):
 
     def switch(self):
         current = getcurrent()
-        assert current is not self.greenlet, 'Cannot switch to MAINLOOP from MAINLOOP'
         switch_out = getattr(current, 'switch_out', None)
         if switch_out is not None:
             switch_out()
@@ -129,6 +128,9 @@ class Hub(object):
         except ValueError:
             pass  # gets raised if there is a greenlet parent cycle
         return self.greenlet.switch()
+
+    def switch_out(self):
+        raise RuntimeError('Cannot switch to MAINLOOP from MAINLOOP')
 
     def next_tick(self, func, *args, **kw):
         self._tick_callbacks.append(partial(func, *args, **kw))
