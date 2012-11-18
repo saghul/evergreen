@@ -1,6 +1,5 @@
 
-version_info = (0, 9, 17, "dev")
-__version__ = ".".join(map(str, version_info))
+__version__ = '0.0.1.dev'
 
 from flubber import greenthread
 from flubber import timeout
