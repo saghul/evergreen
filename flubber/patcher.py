@@ -1,3 +1,4 @@
+
 import sys
 import imp
 
@@ -65,7 +66,6 @@ def inject(module_name, new_globals, *additional_modules):
             _green_socket_modules() +
             _green_thread_modules() +
             _green_time_modules())
-            #_green_MySQLdb()) # enable this after a short baking-in period
 
     # after this we are gonna screw with sys.modules, so capture the
     # state of all the modules we're going to mess with, and lock
@@ -285,13 +285,6 @@ def _green_time_modules():
     from flubber.green import time
     return [('time', time)]
 
-def _green_MySQLdb():
-    try:
-        from flubber.green import MySQLdb
-        return [('MySQLdb', MySQLdb)]
-    except ImportError:
-        return []
-
 
 def slurp_properties(source, destination, ignore=[], srckeys=None):
     """Copy properties from *source* (assumed to be a module) to
@@ -310,9 +303,3 @@ def slurp_properties(source, destination, ignore=[], srckeys=None):
                                 name in ignore)
                             ]))
 
-
-if __name__ == "__main__":
-    import sys
-    sys.argv.pop(0)
-    monkey_patch()
-    execfile(sys.argv[0])
