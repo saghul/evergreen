@@ -1,29 +1,29 @@
 import errno
 import new
 
-import eventlet
-from eventlet import patcher
-from eventlet.green import os, select
-from eventlet.io import GreenPipe
+import flubber
+from flubber import patcher
+from flubber.green import os, select
+from flubber.io import GreenPipe
 
 patcher.inject('subprocess', globals(), ('select', select))
 subprocess_orig = __import__("subprocess")
 
 # This is the meat of this module, the green version of Popen.
 class Popen(subprocess_orig.Popen):
-    """eventlet-friendly version of subprocess.Popen"""
+    """flubber-friendly version of subprocess.Popen"""
     # We do not believe that Windows pipes support non-blocking I/O. At least,
     # the Python file objects stored on our base-class object have no
     # setblocking() method, and the Python fcntl module doesn't exist on
-    # Windows. (see eventlet.greenio.set_nonblocking()) As the sole purpose of
-    # this __init__() override is to wrap the pipes for eventlet-friendly
+    # Windows. (see flubber.greenio.set_nonblocking()) As the sole purpose of
+    # this __init__() override is to wrap the pipes for flubber-friendly
     # non-blocking I/O, don't even bother overriding it on Windows.
     if not subprocess_orig.mswindows:
         def __init__(self, args, bufsize=0, *argss, **kwds):
             # Forward the call to base-class constructor
             subprocess_orig.Popen.__init__(self, args, 0, *argss, **kwds)
             # Now wrap the pipes, if any. This logic is loosely borrowed from
-            # eventlet.processes.Process.run() method.
+            # flubber.processes.Process.run() method.
             for attr in "stdin", "stdout", "stderr":
                 pipe = getattr(self, attr)
                 if pipe is not None and not type(pipe) is GreenPipe:
@@ -33,13 +33,13 @@ class Popen(subprocess_orig.Popen):
 
     def wait(self, check_interval=0.01):
         # Instead of a blocking OS call, this version of wait() uses logic
-        # borrowed from the eventlet 0.2 processes.Process.wait() method.
+        # borrowed from the flubber 0.2 processes.Process.wait() method.
         try:
             while True:
                 status = self.poll()
                 if status is not None:
                     return status
-                eventlet.sleep(check_interval)
+                flubber.sleep(check_interval)
         except OSError, e:
             if e.errno == errno.ECHILD:
                 # no child process, this happens if the child process
@@ -51,7 +51,7 @@ class Popen(subprocess_orig.Popen):
 
     if not subprocess_orig.mswindows:
         # don't want to rewrite the original _communicate() method, we
-        # just want a version that uses eventlet.green.select.select()
+        # just want a version that uses flubber.green.select.select()
         # instead of select.select().
         try:
             _communicate = new.function(subprocess_orig.Popen._communicate.im_func.func_code,

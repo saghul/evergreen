@@ -1,5 +1,5 @@
 
-import eventlet
+import flubber
 
 __all__ = ['Timeout']
 
@@ -27,8 +27,8 @@ class Timeout(BaseException):
         it should not be called explicitly, unless the timer has been
         canceled."""
         assert not self.pending, '%r is already started; to restart it, cancel it first' % self
-        hub = eventlet.core.hub
-        current = eventlet.core.current_greenlet
+        hub = flubber.core.hub
+        current = flubber.core.current_greenlet
         if self.seconds is None: # "fake" timeout (never expires)
             self._timer = None
         elif self.exception is None or isinstance(self.exception, bool): # timeout that raises self

@@ -2,8 +2,8 @@
 """Implements the standard thread module, using greenthreads."""
 __thread = __import__('thread')
 import greenlet
-from eventlet import greenthread
-from eventlet.lock import Semaphore as LockType
+from flubber import greenthread
+from flubber.lock import Semaphore as LockType
 
 __patched__ = ['get_ident', 'start_new_thread', 'start_new', 'allocate_lock',
                'allocate', 'exit', 'interrupt_main', 'stack_size', '_local',
@@ -63,4 +63,4 @@ if hasattr(__thread, 'stack_size'):
             pass
             # not going to decrease stack_size, because otherwise other greenlets in this thread will suffer
 
-from eventlet.corolocal import local as _local
+from flubber.corolocal import local as _local

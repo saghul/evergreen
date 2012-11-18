@@ -2,10 +2,10 @@ os_orig = __import__("os")
 import errno
 socket = __import__("socket")
 
-from eventlet import greenthread
-from eventlet.hub import trampoline
-from eventlet.io import GreenPipe
-from eventlet.patcher import slurp_properties
+from flubber import greenthread
+from flubber.hub import trampoline
+from flubber.io import GreenPipe
+from flubber.patcher import slurp_properties
 
 __all__ = os_orig.__all__
 __patched__ = ['fdopen', 'read', 'write', 'wait', 'waitpid']

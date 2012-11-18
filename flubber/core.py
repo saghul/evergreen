@@ -17,7 +17,7 @@ class CoreModule(types.ModuleType):
 
 
 def setup():
-    from eventlet.hub import get_hub
+    from flubber.hub import get_hub
     from greenlet import getcurrent
     dynamic_attributes = {'hub': get_hub, 'current_greenlet': getcurrent}
     module = CoreModule(__name__, dynamic_attributes)

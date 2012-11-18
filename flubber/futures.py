@@ -1,7 +1,7 @@
 
 import six
 
-from eventlet.lock import Condition
+from flubber.lock import Condition
 
 
 # TODO: add rest of concurrent.futures API

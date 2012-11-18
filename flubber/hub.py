@@ -6,10 +6,10 @@ from collections import deque
 from functools import partial
 from greenlet import greenlet, getcurrent, GreenletExit
 
-from eventlet import patcher
-from eventlet.futures import Future
-from eventlet.timeout import Timeout
-from eventlet.threadpool import ThreadPool
+from flubber import patcher
+from flubber.futures import Future
+from flubber.timeout import Timeout
+from flubber.threadpool import ThreadPool
 
 __all__ = ["get_hub", "trampoline"]
 

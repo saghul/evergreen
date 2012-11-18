@@ -1,5 +1,5 @@
 
-from eventlet.hub import trampoline
+from flubber.hub import trampoline
 BUFFER_SIZE = 4096
 
 import errno

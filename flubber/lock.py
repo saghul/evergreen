@@ -1,7 +1,7 @@
 
-import eventlet
+import flubber
 
-from eventlet.timeout import Timeout
+from flubber.timeout import Timeout
 
 __all__ = ['Semaphore', 'BoundedSemaphore', 'RLock', 'Condition']
 
@@ -61,13 +61,13 @@ class Semaphore(object):
         elif not blocking:
             return False
         else:
-            current = eventlet.core.current_greenlet
+            current = flubber.core.current_greenlet
             self.__waiters.add(current)
             timer = Timeout(timeout)
             timer.start()
             try:
                 while self.__counter <= 0:
-                    eventlet.core.hub.switch()
+                    flubber.core.hub.switch()
             except Timeout, e:
                 if e is timer:
                     return False
@@ -86,7 +86,7 @@ class Semaphore(object):
         ignored"""
         self.__counter += 1
         if self.__waiters:
-            hub = eventlet.core.hub
+            hub = flubber.core.hub
             hub.next_tick(self._notify_waiters)
 
     def _notify_waiters(self):
@@ -129,7 +129,7 @@ class RLock(object):
         self._owner = None
 
     def acquire(self, blocking=True, timeout=None):
-        me = eventlet.core.current_greenlet
+        me = flubber.core.current_greenlet
         if self._owner is me:
             self._count += 1
             return True
@@ -140,7 +140,7 @@ class RLock(object):
         return r
 
     def release(self):
-        if self._owner is not eventlet.core.current_greenlet:
+        if self._owner is not flubber.core.current_greenlet:
             raise RuntimeError('cannot release un-aquired lock')
         self._count = count = self._count - 1
         if not count:
@@ -167,7 +167,7 @@ class RLock(object):
         return state
 
     def _is_owned(self):
-        return self._owner is eventlet.core.current_greenlet
+        return self._owner is flubber.core.current_greenlet
 
 
 class Condition(object):

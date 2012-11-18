@@ -2,7 +2,7 @@
 import functools
 import pyuv
 
-from eventlet.futures import Future
+from flubber.futures import Future
 
 
 class ThreadPool(object):

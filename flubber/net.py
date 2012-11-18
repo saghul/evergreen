@@ -1,7 +1,7 @@
 
 import sys
 
-from eventlet.green import socket
+from flubber.green import socket
 
 __all__ = ['connect', 'listen']
 
@@ -61,7 +61,7 @@ def connect(endpoint, source_address=None):
 
 def listen(endpoint, backlog=128):
     """Convenience function for opening server sockets.  This
-    socket can be used in :func:`~eventlet.serve` or a custom ``accept()`` loop.
+    socket can be used in :func:`~flubber.serve` or a custom ``accept()`` loop.
 
     Sets SO_REUSEADDR on the socket to save on annoyance.
 

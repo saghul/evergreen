@@ -1,16 +1,16 @@
 
 import warnings
 
-import eventlet
+import flubber
 
 __socket    = __import__('socket')
 __all__     = __socket.__all__
 __patched__ = ['fromfd', 'socketpair', 'ssl', 'socket', 'gethostbyname', 'gethostbyname_ex', 'getnameinfo', 'getaddrinfo', 'create_connection',]
 
-from eventlet.patcher import slurp_properties
+from flubber.patcher import slurp_properties
 slurp_properties(__socket, globals(), ignore=__patched__, srckeys=dir(__socket))
 
-from eventlet.io import GreenSocket as socket, _GLOBAL_DEFAULT_TIMEOUT, _fileobject
+from flubber.io import GreenSocket as socket, _GLOBAL_DEFAULT_TIMEOUT, _fileobject
 
 
 try:
@@ -31,7 +31,7 @@ except AttributeError:
 
 
 try:
-    from eventlet.green import ssl as ssl_module
+    from flubber.green import ssl as ssl_module
     sslerror = __socket.sslerror
     __socket.ssl
     def ssl(sock, certificate=None, private_key=None):
@@ -44,7 +44,7 @@ except AttributeError:
 
 
 def _run_in_threadpool(func, *args, **kw):
-    hub = eventlet.core.hub
+    hub = flubber.core.hub
     return hub.threadpool.spawn(func, *args, **kw)
 
 

@@ -2,9 +2,9 @@
 version_info = (0, 9, 17, "dev")
 __version__ = ".".join(map(str, version_info))
 
-from eventlet import greenthread
-from eventlet import timeout
-from eventlet import net
+from flubber import greenthread
+from flubber import timeout
+from flubber import net
 
 sleep = greenthread.sleep
 spawn = greenthread.spawn
@@ -16,6 +16,6 @@ Timeout = timeout.Timeout
 connect = net.connect
 listen = net.listen
 
-import eventlet.core
-core = eventlet.core.setup()
+import flubber.core
+core = flubber.core.setup()
 

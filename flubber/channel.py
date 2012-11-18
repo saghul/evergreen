@@ -1,8 +1,8 @@
 
 import six
 
-from eventlet.lock import Semaphore
-from eventlet.event import Event
+from flubber.lock import Semaphore
+from flubber.event import Event
 
 __all__ = ['Channel']
 

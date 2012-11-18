@@ -1,10 +1,10 @@
 
 from functools import partial
 
-import eventlet
+import flubber
 
-from eventlet.event import Event
-from eventlet.lock import Semaphore
+from flubber.event import Event
+from flubber.lock import Semaphore
 
 __all__ = ['Pool']
 
@@ -22,7 +22,7 @@ class Pool(object):
         self._lock.acquire()
         self._running_jobs += 1
         self._end_event.clear()
-        eventlet.spawn(self._runner, partial(func, *args, **kw))
+        flubber.spawn(self._runner, partial(func, *args, **kw))
 
     def join(self, timeout=None):
         self._end_event.wait(timeout)

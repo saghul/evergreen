@@ -1,8 +1,8 @@
 
-import eventlet
+import flubber
 import greenlet
 
-from eventlet import event
+from flubber import event
 
 __all__ = ['get_current', 'sleep', 'spawn', 'spawn_after', 'GreenThread']
 
@@ -19,8 +19,8 @@ def sleep(seconds=0):
     calling any socket methods, it's a good idea to call ``sleep(0)``
     occasionally; otherwise nothing else will run.
     """
-    hub = eventlet.core.hub
-    current = eventlet.core.current_greenlet
+    hub = flubber.core.hub
+    current = flubber.core.current_greenlet
     timer = hub.call_later(seconds, current.switch)
     try:
         hub.switch()
@@ -38,7 +38,7 @@ def spawn(func, *args, **kwargs):
     Use :func:`spawn_after` to  arrange for greenthreads to be spawned
     after a finite delay.
     """
-    hub = eventlet.core.hub
+    hub = flubber.core.hub
     g = GreenThread(hub.greenlet)
     hub.next_tick(g.switch, func, args, kwargs)
     return g
@@ -61,7 +61,7 @@ def spawn_after(seconds, func, *args, **kwargs):
     generally the desired behavior.  If terminating *func* regardless of whether
     it's started or not is the desired behavior, call :meth:`GreenThread.kill`.
     """
-    hub = eventlet.core.hub
+    hub = flubber.core.hub
     g = GreenThread(hub.greenlet)
     hub.call_later(seconds, g.switch, func, args, kwargs)
     return g
@@ -151,7 +151,7 @@ def kill(g, *throw_args):
     """
     if g.dead:
         return
-    hub = eventlet.core.hub
+    hub = flubber.core.hub
     if not g:
         # greenlet hasn't started yet and therefore throw won't work
         # on its own; semantically we want it to be as though the main
@@ -169,7 +169,7 @@ def kill(g, *throw_args):
                 g.main(just_raise, (), {})
             except:
                 pass
-    current = eventlet.core.current_greenlet
+    current = flubber.core.current_greenlet
     if current is not hub.greenlet:
         # arrange to wake the caller back up immediately
         hub.call_later(0, current.switch)

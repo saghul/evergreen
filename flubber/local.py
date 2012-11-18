@@ -1,11 +1,11 @@
 
-import eventlet
+import flubber
 
 __all__ = ['local']
 
 
 def _get_local_dict():
-    current = eventlet.core.current_greenlet
+    current = flubber.core.current_greenlet
     s = '_%s__local_dict__' % current.__class__.__name__
     if not hasattr(current, s):
         setattr(current, s, {})

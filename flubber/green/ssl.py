@@ -1,14 +1,14 @@
 __ssl = __import__('ssl')
 
-from eventlet.patcher import slurp_properties
+from flubber.patcher import slurp_properties
 slurp_properties(__ssl, globals(), srckeys=dir(__ssl))
 
 import sys
 import errno
 time = __import__('time')
 
-from eventlet.hub import trampoline
-from eventlet.io import set_nonblocking, GreenSocket, SOCKET_CLOSED, CONNECT_ERR, CONNECT_SUCCESS
+from flubber.hub import trampoline
+from flubber.io import set_nonblocking, GreenSocket, SOCKET_CLOSED, CONNECT_ERR, CONNECT_SUCCESS
 orig_socket = __import__('socket')
 socket = orig_socket.socket
 if sys.version_info >= (2,7):

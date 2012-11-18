@@ -1,9 +1,9 @@
 
 __all__ = ['Event']
 
-import eventlet
+import flubber
 
-from eventlet.timeout import Timeout
+from flubber.timeout import Timeout
 
 
 class Event(object):
@@ -18,7 +18,7 @@ class Event(object):
     def set(self):
         self._flag = True
         if self._waiters:
-            eventlet.core.hub.next_tick(self._notify_waiters)
+            flubber.core.hub.next_tick(self._notify_waiters)
 
     def clear(self):
         self._flag = False
@@ -26,8 +26,8 @@ class Event(object):
     def wait(self, timeout=None):
         if self._flag:
             return True
-        current = eventlet.core.current_greenlet
-        hub = eventlet.core.hub
+        current = flubber.core.current_greenlet
+        hub = flubber.core.hub
         self._waiters.add(current)
         if timeout is not None:
             t = Timeout(timeout)

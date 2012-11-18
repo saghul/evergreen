@@ -156,7 +156,7 @@ def _original_patch_function(func, *module_names):
 
 def original(modname):
     """ This returns an unpatched version of a module; this is useful for
-    Eventlet itself (i.e. tpool)."""
+    flubber itself (i.e. tpool)."""
     # note that it's not necessary to temporarily install unpatched
     # versions of all patchable modules during the import of the
     # module; this is because none of them import each other, except
@@ -260,34 +260,34 @@ def is_monkey_patched(module):
            getattr(module, '__name__', None) in already_patched
 
 def _green_os_modules():
-    from eventlet.green import os
+    from flubber.green import os
     return [('os', os)]
 
 def _green_select_modules():
-    from eventlet.green import select
+    from flubber.green import select
     return [('select', select)]
 
 def _green_socket_modules():
-    from eventlet.green import socket
+    from flubber.green import socket
     try:
-        from eventlet.green import ssl
+        from flubber.green import ssl
         return [('socket', socket), ('ssl', ssl)]
     except ImportError:
         return [('socket', socket)]
 
 def _green_thread_modules():
-    from eventlet.green import Queue
-    from eventlet.green import thread
-    from eventlet.green import threading
+    from flubber.green import Queue
+    from flubber.green import thread
+    from flubber.green import threading
     return [('Queue', Queue), ('thread', thread), ('threading', threading)]
 
 def _green_time_modules():
-    from eventlet.green import time
+    from flubber.green import time
     return [('time', time)]
 
 def _green_MySQLdb():
     try:
-        from eventlet.green import MySQLdb
+        from flubber.green import MySQLdb
         return [('MySQLdb', MySQLdb)]
     except ImportError:
         return []

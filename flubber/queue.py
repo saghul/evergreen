@@ -5,7 +5,7 @@ import heapq
 from collections import deque
 from time import time as _time
 
-from eventlet.lock import Semaphore, Condition
+from flubber.lock import Semaphore, Condition
 
 __all__ = ['Empty', 'Full', 'Queue', 'PriorityQueue', 'LifoQueue']
 
