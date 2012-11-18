@@ -49,5 +49,5 @@ class Event(object):
         while to_notify:
             waiter = to_notify.pop()
             if waiter in self._waiters:
-                waiter.switch(self)
+                waiter.switch()
 
