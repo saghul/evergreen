@@ -5,8 +5,6 @@ import heapq
 from collections import deque
 from time import time as _time
 
-import eventlet
-
 from eventlet.lock import Semaphore, Condition
 
 __all__ = ['Empty', 'Full', 'Queue', 'PriorityQueue', 'LifoQueue']
@@ -60,7 +58,6 @@ class Queue(object):
         Raises a ValueError if called more times than there were items
         placed in the queue.
         """
-        assert eventlet.core.hub.greenlet is not eventlet.core.current_greenlet, 'do not call blocking functions from the mainloop'
         self.all_tasks_done.acquire()
         try:
             unfinished = self.unfinished_tasks - 1
@@ -81,7 +78,6 @@ class Queue(object):
 
         When the count of unfinished tasks drops to zero, join() unblocks.
         """
-        assert eventlet.core.hub.greenlet is not eventlet.core.current_greenlet, 'do not call blocking functions from the mainloop'
         self.all_tasks_done.acquire()
         try:
             while self.unfinished_tasks:
@@ -91,7 +87,6 @@ class Queue(object):
 
     def qsize(self):
         """Return the approximate size of the queue (not reliable!)."""
-        assert eventlet.core.hub.greenlet is not eventlet.core.current_greenlet, 'do not call blocking functions from the mainloop'
         self.mutex.acquire()
         n = self._qsize()
         self.mutex.release()
@@ -109,7 +104,6 @@ class Queue(object):
         completed, the preferred technique is to use the join() method.
 
         """
-        assert eventlet.core.hub.greenlet is not eventlet.core.current_greenlet, 'do not call blocking functions from the mainloop'
         self.mutex.acquire()
         n = not self._qsize()
         self.mutex.release()
@@ -124,7 +118,6 @@ class Queue(object):
         qsize() can be used.
 
         """
-        assert eventlet.core.hub.greenlet is not eventlet.core.current_greenlet, 'do not call blocking functions from the mainloop'
         self.mutex.acquire()
         n = 0 < self.maxsize <= self._qsize()
         self.mutex.release()
@@ -141,7 +134,6 @@ class Queue(object):
         is immediately available, else raise the Full exception ('timeout'
         is ignored in that case).
         """
-        assert eventlet.core.hub.greenlet is not eventlet.core.current_greenlet, 'do not call blocking functions from the mainloop'
         self.not_full.acquire()
         try:
             if self.maxsize > 0:
@@ -185,7 +177,6 @@ class Queue(object):
         available, else raise the Empty exception ('timeout' is ignored
         in that case).
         """
-        assert eventlet.core.hub.greenlet is not eventlet.core.current_greenlet, 'do not call blocking functions from the mainloop'
         self.not_empty.acquire()
         try:
             if not block:

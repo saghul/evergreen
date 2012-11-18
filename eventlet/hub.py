@@ -1,6 +1,5 @@
 
 import pyuv
-import sys
 import traceback
 
 from collections import deque
@@ -196,7 +195,6 @@ class Hub(object):
     def wait_fd(self, fd, read=False, write=False, timeout=None, timeout_exc=None):
         timeout_exc = timeout_exc or Timeout
         current = getcurrent()
-        assert self.greenlet is not current, 'do not call blocking functions from the mainloop'
         assert not (read and write), 'not allowed to trampoline for reading and writing'
         assert any((read, write)), 'either read or write event needs to be specified'
         try:

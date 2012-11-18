@@ -1,11 +1,10 @@
-import sys
 
 import eventlet
 import greenlet
 
 from eventlet import event
 
-__all__ = ['getcurrent', 'sleep', 'suspend', 'spawn', 'spawn_after', 'GreenThread']
+__all__ = ['get_current', 'sleep', 'spawn', 'spawn_after', 'GreenThread']
 
 get_current = greenlet.getcurrent
 
@@ -22,25 +21,11 @@ def sleep(seconds=0):
     """
     hub = eventlet.core.hub
     current = eventlet.core.current_greenlet
-    assert hub.greenlet is not current, 'do not call blocking functions from the mainloop'
     timer = hub.call_later(seconds, current.switch)
     try:
         hub.switch()
     finally:
         timer.cancel()
-
-
-def suspend(switch_back=True):
-    """Suspend the current coroutine and yield control to the Hub for at least one
-    event loop iteration. If switch back is False, the current task will not be resumed
-    afterwards.
-    """
-    hub = eventlet.core.hub
-    current = eventlet.core.current_greenlet
-    assert hub.greenlet is not current, 'do not call blocking functions from the mainloop'
-    if switch_back:
-        hub.next_tick(current.switch)
-    return hub.switch()
 
 
 def spawn(func, *args, **kwargs):
@@ -122,7 +107,7 @@ class GreenThread(greenlet.greenlet):
 
     def main(self, function, args, kwargs):
         try:
-            result = function(*args, **kwargs)
+            function(*args, **kwargs)
         finally:
             self._exit_event.set()
             self._resolve_links()

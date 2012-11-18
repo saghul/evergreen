@@ -7,7 +7,6 @@ from eventlet import timeout
 from eventlet import net
 
 sleep = greenthread.sleep
-suspend = greenthread.suspend
 spawn = greenthread.spawn
 spawn_after = greenthread.spawn_after
 kill = greenthread.kill

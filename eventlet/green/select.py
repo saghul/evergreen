@@ -32,7 +32,6 @@ def select(read_list, write_list, error_list, timeout=None):
     hub = get_hub()
     t = None
     current = get_current()
-    assert hub.greenlet is not current, 'do not call blocking functions from the mainloop'
     ds = {}
     for r in read_list:
         ds[get_fileno(r)] = {'read' : r}

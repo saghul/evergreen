@@ -28,15 +28,13 @@ class Event(object):
             return True
         current = eventlet.core.current_greenlet
         hub = eventlet.core.hub
-        assert current is not hub.greenlet, 'Cannot block in the main loop'
         self._waiters.add(current)
         if timeout is not None:
             t = Timeout(timeout)
             t.start()
         try:
             try:
-                result = hub.switch()
-                assert result is self, 'Invalid switch into Event.wait(): %r' % (result, )
+                hub.switch()
             except Timeout as e:
                 if e is not t:
                     raise

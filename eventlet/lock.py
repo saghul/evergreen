@@ -67,7 +67,7 @@ class Semaphore(object):
             timer.start()
             try:
                 while self.__counter <= 0:
-                    eventlet.suspend(switch_back=False)
+                    eventlet.core.hub.switch()
             except Timeout, e:
                 if e is timer:
                     return False

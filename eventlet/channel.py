@@ -1,6 +1,5 @@
 
 import six
-import eventlet
 
 from eventlet.lock import Semaphore
 from eventlet.event import Event
@@ -29,9 +28,6 @@ class Channel(object):
         self._data = None
 
     def send(self, data):
-        current = eventlet.core.current_greenlet
-        hub = eventlet.core.hub
-        assert hub.greenlet is not current, 'do not call blocking functions from the mainloop'
         with self._send_lock:
             self._data = data
             self._new_data.set()
@@ -42,9 +38,6 @@ class Channel(object):
         self.send(_Bomb(exc_type, exc_value, exc_tb))
 
     def receive(self):
-        current = eventlet.core.current_greenlet
-        hub = eventlet.core.hub
-        assert hub.greenlet is not current, 'do not call blocking functions from the mainloop'
         with self._recv_lock:
             self._new_data.wait()
             data, self._data = self._data, None
