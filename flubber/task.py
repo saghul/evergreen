@@ -75,9 +75,13 @@ class Task(greenlet.greenlet):
         self._target = target
         self._args = args
         self._kwargs = kwargs
+        self._started = False
         self._exit_event = Event()
 
     def start(self):
+        if self._started:
+            raise RuntimeError('tasks can only be started once')
+        self._started = True
         hub = flubber.core.hub
         hub.next_tick(self.switch)
 
