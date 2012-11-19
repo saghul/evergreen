@@ -7,7 +7,6 @@ from functools import partial
 from greenlet import greenlet, getcurrent, GreenletExit
 
 from flubber import patcher
-from flubber.futures import Future
 from flubber.timeout import Timeout
 from flubber.threadpool import ThreadPool
 
@@ -15,17 +14,16 @@ __all__ = ["get_hub", "trampoline"]
 
 
 threading = patcher.original('threading')
-_threadlocal = threading.local()
+_tls = threading.local()
 
 
 def get_hub():
     """Get the current event hub singleton object.
     """
     try:
-        hub = _threadlocal.hub
+        return _tls.hub
     except AttributeError:
-        hub = _threadlocal.hub = Hub()
-    return hub
+        raise RuntimeError('there is no hub created in the current thread')
 
 
 def trampoline(fd, read=False, write=False, timeout=None, timeout_exc=None):
@@ -78,50 +76,33 @@ class Waker(object):
         self._async.send()
 
 
-class _SchedulledCall(object):
-
-    def __init__(self, future, func, args, kwargs):
-        self.future = future
-        self.cb = partial(func, *args, **kwargs)
-
-    def __call__(self):
-        if not self.future.set_running_or_notify_cancel():
-            return
-        try:
-            result = self.cb()
-        except BaseException as e:
-            self.future.set_exception(e)
-        else:
-            self.future.set_result(result)
-
-
 class Hub(object):
     SYSTEM_ERROR = (KeyboardInterrupt, SystemExit, SystemError)
     NOT_ERROR = (GreenletExit, SystemExit)
 
     def __init__(self):
-        self.greenlet = greenlet(self.run)
+        global _tls
+        if getattr(_tls, 'hub', None) is not None:
+            raise RuntimeError('cannot instantiate more than one Hub per thread')
+        _tls.hub = self
+        self.greenlet = greenlet(self._run_loop)
         self.loop = pyuv.Loop()
-        self.loop.excepthook = self.handle_error
+        self.loop.excepthook = self._handle_error
         self.listeners = {pyuv.UV_READABLE: {}, pyuv.UV_WRITABLE: {}}
         self.threadpool = ThreadPool(self)
 
         self._timers = set()
         self._waker = Waker(self)
+        self._signal_checker = pyuv.SignalChecker(self.loop)
         self._tick_prepare = pyuv.Prepare(self.loop)
         self._tick_idle = pyuv.Idle(self.loop)
         self._tick_callbacks = deque()
-
-        self.stopping = False
-        self.running = False
 
     def switch(self):
         current = getcurrent()
         switch_out = getattr(current, 'switch_out', None)
         if switch_out is not None:
             switch_out()
-        if self.greenlet.dead:
-            self.greenlet = greenlet(self.run)
         try:
             if self.greenlet.parent is not current:
                 current.parent = self.greenlet
@@ -138,50 +119,32 @@ class Hub(object):
             self._tick_prepare.start(self._tick_cb)
             self._tick_idle.start(lambda handle: handle.stop())
 
-    def schedulle_call(self, func, *args, **kw):
-        future = Future()
-        item = _SchedulledCall(future, func, args, kw)
-        self._tick_callbacks.append(item)
-        if not self._tick_prepare.active:
-            self._tick_prepare.start(self._tick_cb)
-            self._tick_idle.start(lambda handle: handle.stop())
-        return future
+    def run(self):
+        current = getcurrent()
+        if current is not self.greenlet.parent:
+            raise RuntimeError('run() can only be called from MAIN greenlet')
+        if self.greenlet.dead:
+            return
+        self.greenlet.switch()
 
-    def run(self, *a, **kw):
-        """Run the runloop until abort is called.
-        """
-        # accept and discard variable arguments because they will be
-        # supplied if other greenlets have run and exited before the
-        # hub's greenlet gets a chance to run
-        if self.running:
-            raise RuntimeError("Already running!")
-        try:
-            self.running = True
-            while not self.stopping:
-                self.loop.run_once()
-        finally:
-            self.running = False
-            self.stopping = False
-            # TODO
-            #self._waker = None
-            #self._cleanup_loop()
+    def destroy(self):
+        global _tls
+        if getattr(_tls, 'hub', None) is not self:
+            raise RuntimeError('destroy() can only be called from the same thread were the hub was created')
+        del _tls.hub
 
-    def abort(self, wait=False):
-        """Stop the runloop. If run is executing, it will exit after
-        completing the next runloop iteration.
+        self._cleanup_loop()
+        self.loop.excepthook = None
+        self.loop = None
+        self.listeners = None
+        self.threadpool = None
 
-        Set *wait* to True to cause abort to switch to the hub immediately and
-        wait until it's finished processing.  Waiting for the hub will only
-        work from the main greenlet; all other greenlets (tasks) will become
-        unreachable.
-        """
-        if self.running:
-            self.stopping = True
-        if wait:
-            assert self.greenlet is not getcurrent(), "Can't abort with wait from inside the hub's greenlet."
-            # wakeup loop, in case it was busy polling
-            self._waker.wake()
-            self.switch()
+        self._timers = None
+        self._waker = None
+        self._signal_checker = None
+        self._tick_prepare = None
+        self._tick_idle = None
+        self._tick_callbacks = None
 
     def call_later(self, seconds, cb, *args, **kw):
         """Schedule a callable to be called after 'seconds' seconds have
@@ -219,7 +182,7 @@ class Hub(object):
 
     # internal
 
-    def handle_error(self, typ, value, tb):
+    def _handle_error(self, typ, value, tb):
         if not issubclass(typ, self.NOT_ERROR):
             traceback.print_exception(typ, value, tb)
         if issubclass(typ, self.SYSTEM_ERROR):
@@ -227,11 +190,15 @@ class Hub(object):
             if current is self.greenlet:
                 self.greenlet.parent.throw(typ, value)
             else:
-                # TODO: maybe next_tick is not such a good idea
                 self.next_tick(self.parent.throw, typ, value)
         del tb
 
-    # private
+    def _run_loop(self):
+        self._signal_checker.start()
+        try:
+            self.loop.run()
+        finally:
+            self._cleanup_loop()
 
     def _add_listener(self, listener):
         for evtype in self.listeners.iterkeys():
