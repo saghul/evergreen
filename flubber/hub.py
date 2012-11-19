@@ -220,9 +220,9 @@ class Hub(object):
     # internal
 
     def handle_error(self, typ, value, tb):
-        if not issubclass(type, self.NOT_ERROR):
+        if not issubclass(typ, self.NOT_ERROR):
             traceback.print_exception(typ, value, tb)
-        if issubclass(type, self.SYSTEM_ERROR):
+        if issubclass(typ, self.SYSTEM_ERROR):
             current = getcurrent()
             if current is self.greenlet:
                 self.greenlet.parent.throw(typ, value)
