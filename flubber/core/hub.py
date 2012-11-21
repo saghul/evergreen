@@ -162,6 +162,20 @@ class Hub(object):
         """
         return _Timer(self, seconds, cb, *args, **kw)
 
+    def call_from_thread(self, func, *args, **kw):
+        """Run the given callable in the hub thread. This is the only thread-safe
+        function and the one that must be used to call any cooperative function from
+        a thread other than the one running the hub.
+        """
+        async = None
+        def _cb(handle):
+            try:
+                func(*args, **kw)
+            finally:
+                async.close()
+        async = pyuv.Async(self.loop, _cb)
+        async.send()
+
     def wait_fd(self, fd, read=False, write=False, timeout=None, timeout_exc=None):
         timeout_exc = timeout_exc or Timeout
         current = get_current()
