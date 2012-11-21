@@ -61,13 +61,13 @@ class Semaphore(object):
         elif not blocking:
             return False
         else:
-            current = flubber.core.current_greenlet
+            current = flubber.current.task
             self.__waiters.add(current)
             timer = Timeout(timeout)
             timer.start()
             try:
                 while self.__counter <= 0:
-                    flubber.core.hub.switch()
+                    flubber.current.hub.switch()
             except Timeout, e:
                 if e is timer:
                     return False
@@ -86,8 +86,7 @@ class Semaphore(object):
         ignored"""
         self.__counter += 1
         if self.__waiters:
-            hub = flubber.core.hub
-            hub.next_tick(self._notify_waiters)
+            flubber.current.hub.next_tick(self._notify_waiters)
 
     def _notify_waiters(self):
         if self.__waiters and self.__counter > 0:
@@ -129,7 +128,7 @@ class RLock(object):
         self._owner = None
 
     def acquire(self, blocking=True, timeout=None):
-        me = flubber.core.current_greenlet
+        me = flubber.current.task
         if self._owner is me:
             self._count += 1
             return True
@@ -140,7 +139,7 @@ class RLock(object):
         return r
 
     def release(self):
-        if self._owner is not flubber.core.current_greenlet:
+        if self._owner is not flubber.current.task:
             raise RuntimeError('cannot release un-aquired lock')
         self._count = count = self._count - 1
         if not count:
@@ -167,7 +166,7 @@ class RLock(object):
         return state
 
     def _is_owned(self):
-        return self._owner is flubber.core.current_greenlet
+        return self._owner is flubber.current.task
 
 
 class Condition(object):

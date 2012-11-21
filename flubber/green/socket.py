@@ -44,7 +44,7 @@ except AttributeError:
 
 
 def _run_in_threadpool(func, *args, **kw):
-    hub = flubber.core.hub
+    hub = flubber.current.hub
     return hub.threadpool.spawn(func, *args, **kw)
 
 

@@ -4,11 +4,12 @@ import traceback
 
 from collections import deque
 from functools import partial
-from greenlet import greenlet, getcurrent, GreenletExit
 
 from flubber import patcher
+from flubber.core._greenlet import greenlet, get_current, GreenletExit
 from flubber.timeout import Timeout
 from flubber.threadpool import ThreadPool
+
 
 __all__ = ["get_hub", "trampoline"]
 
@@ -99,7 +100,7 @@ class Hub(object):
         self._tick_callbacks = deque()
 
     def switch(self):
-        current = getcurrent()
+        current = get_current()
         switch_out = getattr(current, 'switch_out', None)
         if switch_out is not None:
             switch_out()
@@ -120,7 +121,7 @@ class Hub(object):
             self._tick_idle.start(lambda handle: handle.stop())
 
     def run(self):
-        current = getcurrent()
+        current = get_current()
         if current is not self.greenlet.parent:
             raise RuntimeError('run() can only be called from MAIN greenlet')
         if self.greenlet.dead:
@@ -159,7 +160,7 @@ class Hub(object):
 
     def wait_fd(self, fd, read=False, write=False, timeout=None, timeout_exc=None):
         timeout_exc = timeout_exc or Timeout
-        current = getcurrent()
+        current = get_current()
         assert not (read and write), 'not allowed to trampoline for reading and writing'
         assert any((read, write)), 'either read or write event needs to be specified'
         try:
@@ -186,7 +187,7 @@ class Hub(object):
         if not issubclass(typ, self.NOT_ERROR):
             traceback.print_exception(typ, value, tb)
         if issubclass(typ, self.SYSTEM_ERROR):
-            current = getcurrent()
+            current = get_current()
             if current is self.greenlet:
                 self.greenlet.parent.throw(typ, value)
             else:

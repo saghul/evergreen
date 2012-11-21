@@ -18,7 +18,7 @@ class Event(object):
     def set(self):
         self._flag = True
         if self._waiters:
-            flubber.core.hub.next_tick(self._notify_waiters)
+            flubber.current.hub.next_tick(self._notify_waiters)
 
     def clear(self):
         self._flag = False
@@ -26,8 +26,8 @@ class Event(object):
     def wait(self, timeout=None):
         if self._flag:
             return True
-        current = flubber.core.current_greenlet
-        hub = flubber.core.hub
+        current = flubber.current.task
+        hub = flubber.current.hub
         self._waiters.add(current)
         if timeout is not None:
             t = Timeout(timeout)

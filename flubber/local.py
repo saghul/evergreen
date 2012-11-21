@@ -1,11 +1,11 @@
 
-import flubber
+from flubber.core._greenlet import get_current
 
 __all__ = ['local']
 
 
 def _get_local_dict():
-    current = flubber.core.current_greenlet
+    current = get_current()
     s = '_%s__local_dict__' % current.__class__.__name__
     if not hasattr(current, s):
         setattr(current, s, {})

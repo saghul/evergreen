@@ -7,7 +7,7 @@ import sys
 import errno
 time = __import__('time')
 
-from flubber.hub import trampoline
+from flubber.core.hub import trampoline
 from flubber.io import set_nonblocking, GreenSocket, SOCKET_CLOSED, CONNECT_ERR, CONNECT_SUCCESS
 orig_socket = __import__('socket')
 socket = orig_socket.socket

@@ -1,5 +1,5 @@
 
-from flubber.hub import trampoline
+from flubber.core.hub import trampoline
 BUFFER_SIZE = 4096
 
 import errno
