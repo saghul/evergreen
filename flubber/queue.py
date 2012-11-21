@@ -5,19 +5,19 @@ import heapq
 from collections import deque
 from time import time as _time
 
+import six
+
 from flubber.lock import Semaphore, Condition
 
 __all__ = ['Empty', 'Full', 'Queue', 'PriorityQueue', 'LifoQueue']
 
+if six.PY3:
+    __queue = __import__('queue')
+else:
+    __queue = __import__('Queue')
 
-class Empty(Exception):
-    "Exception raised by Queue.get(block=0)/get_nowait()."
-    pass
-
-
-class Full(Exception):
-    "Exception raised by Queue.put(block=0)/put_nowait()."
-    pass
+Empty = __queue.Empty
+Full = __queue.Full
 
 
 class Queue(object):
