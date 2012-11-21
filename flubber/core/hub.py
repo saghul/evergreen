@@ -125,14 +125,19 @@ class Hub(object):
         if current is not self.greenlet.parent:
             raise RuntimeError('run() can only be called from MAIN greenlet')
         if self.greenlet.dead:
-            return
+            raise RuntimeError('hub has already ended')
         self.greenlet.switch()
 
     def destroy(self):
         global _tls
-        if getattr(_tls, 'hub', None) is not self:
-            raise RuntimeError('destroy() can only be called from the same thread were the hub was created')
-        del _tls.hub
+        try:
+            hub = _tls.hub
+        except AttributeError:
+            raise RuntimeError('hub is already destroyed')
+        else:
+            if hub is not self:
+                raise RuntimeError('destroy() can only be called from the same thread were the hub was created')
+            del _tls.hub, hub
 
         self._cleanup_loop()
         self.loop.excepthook = None
