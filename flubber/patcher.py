@@ -179,13 +179,6 @@ def original(modname):
         sys.modules[dependency] = original(dependency)
     try:
         real_mod = __import__(modname, {}, {}, modname.split('.')[:-1])
-        if modname == 'Queue' and not hasattr(real_mod, '_threading'):
-            # tricky hack: Queue's constructor in <2.7 imports
-            # threading on every instantiation; therefore we wrap
-            # it so that it always gets the original threading
-            real_mod.Queue.__init__ = _original_patch_function(
-                real_mod.Queue.__init__,
-                'threading')
         # save a reference to the unpatched module so it doesn't get lost
         sys.modules[original_name] = real_mod
     finally:
