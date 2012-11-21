@@ -2,7 +2,7 @@
 from flubber.core.task import Task, TaskExit, get_current
 from flubber.core.hub import Hub, get_hub
 
-__all__ = ['Hub', 'Task', 'TaskExit', 'current_ctx', 'sleep', 'spawn', 'spawn_later']
+__all__ = ['Hub', 'Task', 'TaskExit', 'current_ctx', 'spawn', 'spawn_later', 'sleep', 'yield_']
 
 
 def sleep(seconds=0):
@@ -10,11 +10,7 @@ def sleep(seconds=0):
     elapsed.
 
     *seconds* may be specified as an integer, or a float if fractional seconds
-    are desired. Calling :func:`~task.sleep` with *seconds* of 0 is the
-    canonical way of expressing a cooperative yield. For example, if one is
-    looping over a large list performing an expensive calculation without
-    calling any socket methods, it's a good idea to call ``sleep(0)``
-    occasionally; otherwise nothing else will run.
+    are desired.
     """
     hub = get_hub()
     current = get_current()
@@ -23,6 +19,19 @@ def sleep(seconds=0):
         hub.switch()
     finally:
         timer.cancel()
+
+
+def yield_():
+    """Yield control to another eligible coroutine for a loop iteration.
+
+    For example, if one is looping over a large list performing an expensive
+    calculation without calling any socket methods, it's a good idea to
+    call ``yield_()`` occasionally; otherwise nothing else will run.
+    """
+    hub = get_hub()
+    current = get_current()
+    hub.next_tick(current.switch)
+    hub.switch()
 
 
 def spawn(func, *args, **kwargs):
