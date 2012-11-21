@@ -120,7 +120,7 @@ class Hub(object):
             self._tick_prepare.start(self._tick_cb)
             self._tick_idle.start(lambda handle: handle.stop())
 
-    def run(self):
+    def join(self):
         current = get_current()
         if current is not self.greenlet.parent:
             raise RuntimeError('run() can only be called from MAIN greenlet')
