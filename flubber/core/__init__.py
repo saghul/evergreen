@@ -55,13 +55,13 @@ def spawn_later(seconds, func, *args, **kwargs):
     are desired. The *func* will be called with the given *args* and
     keyword arguments *kwargs*, and will be executed within its own task.
 
-    The return value of :func:`spawn_later` is a :class:`Task` object.
+    The return value of :func:`spawn_later` is a tuple containing a timer and a
+    :class:`Task` object.
 
     To cancel the spawn and prevent *func* from being called,
-    call :meth:`Task.cancel` on the return value of :func:`spawn_after`.
+    call :meth:`cancel` on the timer in the return value of :func:`spawn_after`.
     This will not abort the function if it's already started running, which is
-    generally the desired behavior.  If terminating *func* regardless of whether
-    it's started or not is the desired behavior, call :meth:`Task.kill`.
+    generally the desired behavior.
     """
     hub = get_hub()
     t = Task(target=func, args=args, kwargs=kwargs)

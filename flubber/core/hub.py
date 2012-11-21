@@ -154,8 +154,7 @@ class Hub(object):
 
     def call_later(self, seconds, cb, *args, **kw):
         """Schedule a callable to be called after 'seconds' seconds have
-        elapsed. The timer will NOT be canceled if the current greenlet has
-        exited before the timer fires.
+        elapsed.
             seconds: The number of seconds to wait.
             cb: The callable to call after the given time.
             *args: Arguments to pass to the callable when called.
