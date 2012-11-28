@@ -29,18 +29,16 @@ class Event(object):
         current = flubber.current.task
         hub = flubber.current.hub
         self._waiters.add(current)
-        if timeout is not None:
-            t = Timeout(timeout)
-            t.start()
+        timer = Timeout(timeout)
+        timer.start()
         try:
             try:
                 hub.switch()
             except Timeout as e:
-                if e is not t:
+                if e is not timer:
                     raise
         finally:
-            if timeout is not None:
-                t.cancel()
+            timer.cancel()
             self._waiters.remove(current)
         return self._flag
 
