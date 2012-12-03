@@ -256,29 +256,29 @@ def is_monkey_patched(module):
            getattr(module, '__name__', None) in already_patched
 
 def _green_os_modules():
-    from flubber.green import os
+    from flubber.lib import os
     return [('os', os)]
 
 def _green_select_modules():
-    from flubber.green import select
+    from flubber.lib import select
     return [('select', select)]
 
 def _green_socket_modules():
-    from flubber.green import socket
+    from flubber.lib import socket
     try:
-        from flubber.green import ssl
+        from flubber.lib import ssl
         return [('socket', socket), ('ssl', ssl)]
     except ImportError:
         return [('socket', socket)]
 
 def _green_thread_modules():
-    from flubber.green import Queue
-    from flubber.green import thread
-    from flubber.green import threading
+    from flubber.lib import Queue
+    from flubber.lib import thread
+    from flubber.lib import threading
     return [('Queue', Queue), ('thread', thread), ('threading', threading)]
 
 def _green_time_modules():
-    from flubber.green import time
+    from flubber.lib import time
     return [('time', time)]
 
 

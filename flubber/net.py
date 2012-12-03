@@ -4,7 +4,7 @@
 
 import sys
 
-from flubber.green import socket
+from flubber.lib import socket
 
 __all__ = ['connect', 'listen']
 

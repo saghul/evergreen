@@ -42,7 +42,7 @@ except AttributeError:
     pass
 
 try:
-    from flubber.green import ssl as ssl_module
+    from flubber.lib import ssl as ssl_module
     sslerror = __socket.sslerror
     __socket.ssl
     def ssl(sock, certificate=None, private_key=None):

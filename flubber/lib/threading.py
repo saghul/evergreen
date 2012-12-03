@@ -5,8 +5,7 @@
 """Implements the standard threading module, using greenthreads."""
 import greenlet
 from flubber import patcher
-from flubber.green import thread
-from flubber.green import time
+from flubber.lib import thread, time
 
 __patched__ = ['_start_new_thread', '_allocate_lock', '_get_ident', '_sleep',
                'local', 'stack_size', 'Lock', 'currentThread',

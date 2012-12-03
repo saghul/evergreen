@@ -7,8 +7,8 @@ import new
 
 import flubber
 from flubber import patcher
-from flubber.green import os, select
-from flubber.io import GreenPipe
+from flubber.lib import os, select
+from flubber.io import Pipe
 
 patcher.inject('subprocess', globals(), ('select', select))
 subprocess_orig = __import__("subprocess")
@@ -19,7 +19,7 @@ class Popen(subprocess_orig.Popen):
     # We do not believe that Windows pipes support non-blocking I/O. At least,
     # the Python file objects stored on our base-class object have no
     # setblocking() method, and the Python fcntl module doesn't exist on
-    # Windows. (see flubber.greenio.set_nonblocking()) As the sole purpose of
+    # Windows. As the sole purpose of
     # this __init__() override is to wrap the pipes for flubber-friendly
     # non-blocking I/O, don't even bother overriding it on Windows.
     if not subprocess_orig.mswindows:
@@ -30,8 +30,8 @@ class Popen(subprocess_orig.Popen):
             # flubber.processes.Process.run() method.
             for attr in "stdin", "stdout", "stderr":
                 pipe = getattr(self, attr)
-                if pipe is not None and not type(pipe) is GreenPipe:
-                    wrapped_pipe = GreenPipe(pipe, pipe.mode, bufsize)
+                if pipe is not None and not type(pipe) is Pipe:
+                    wrapped_pipe = Pipe(pipe, pipe.mode, bufsize)
                     setattr(self, attr, wrapped_pipe)
         __init__.__doc__ = subprocess_orig.Popen.__init__.__doc__
 
@@ -55,7 +55,7 @@ class Popen(subprocess_orig.Popen):
 
     if not subprocess_orig.mswindows:
         # don't want to rewrite the original _communicate() method, we
-        # just want a version that uses flubber.green.select.select()
+        # just want a version that uses flubber.lib.select.select()
         # instead of select.select().
         try:
             _communicate = new.function(subprocess_orig.Popen._communicate.im_func.func_code,
