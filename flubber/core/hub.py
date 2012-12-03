@@ -10,11 +10,10 @@ from functools import partial
 
 from flubber import patcher
 from flubber.core._greenlet import greenlet, get_current, GreenletExit
-from flubber.timeout import Timeout
 from flubber.threadpool import ThreadPool
 
 
-__all__ = ["get_hub", "trampoline"]
+__all__ = ["get_hub"]
 
 
 threading = patcher.original('threading')
@@ -28,46 +27,6 @@ def get_hub():
         return _tls.hub
     except AttributeError:
         raise RuntimeError('there is no hub created in the current thread')
-
-
-def trampoline(fd, read=False, write=False, timeout=None, timeout_exc=None):
-    """Suspend the current coroutine until the given socket object or file
-    descriptor is ready to *read*, ready to *write*, or the specified
-    *timeout* elapses, depending on arguments specified.
-
-    To wait for *fd* to be ready to read, pass *read* ``=True``; ready to
-    write, pass *write* ``=True``. To specify a timeout, pass the *timeout*
-    argument in seconds.
-
-    If the specified *timeout* elapses before the socket is ready to read or
-    write, *timeout_exc* will be raised instead of ``trampoline()``
-    returning normally.
-    """
-    hub = get_hub()
-    return hub.wait_fd(fd, read, write, timeout, timeout_exc)
-
-
-class FDListener(object):
-    evtype_map = {pyuv.UV_READABLE: 'read', pyuv.UV_WRITABLE: 'write'}
-
-    def __init__(self, hub, evtype, fileno, cb):
-        assert (evtype == pyuv.UV_READABLE or evtype == pyuv.UV_WRITABLE)
-        self.evtype = evtype
-        self.fd = fileno
-        self.cb = cb
-        self._handle = pyuv.Poll(hub.loop, fileno)
-
-    def start(self):
-        self._handle.start(self.evtype, self._poll_cb)
-
-    def stop(self):
-        self._handle.stop()
-
-    def _poll_cb(self, handle, events, error):
-        self.cb()
-
-    def __repr__(self):
-        return "%s(%r, %r, %r)" % (type(self).__name__, self.evtype_map[self.evtype], self.fileno, self.cb)
 
 
 class Waker(object):
@@ -92,7 +51,6 @@ class Hub(object):
         self.greenlet = greenlet(self._run_loop)
         self.loop = pyuv.Loop()
         self.loop.excepthook = self._handle_error
-        self.listeners = {pyuv.UV_READABLE: {}, pyuv.UV_WRITABLE: {}}
         self.threadpool = ThreadPool(self)
 
         self._timers = set()
@@ -145,7 +103,6 @@ class Hub(object):
         self._cleanup_loop()
         self.loop.excepthook = None
         self.loop = None
-        self.listeners = None
         self.threadpool = None
 
         self._timers = None
@@ -179,29 +136,6 @@ class Hub(object):
         async = pyuv.Async(self.loop, _cb)
         async.send()
 
-    def wait_fd(self, fd, read=False, write=False, timeout=None, timeout_exc=None):
-        timeout_exc = timeout_exc or Timeout
-        current = get_current()
-        assert not (read and write), 'not allowed to trampoline for reading and writing'
-        assert any((read, write)), 'either read or write event needs to be specified'
-        try:
-            fileno = fd.fileno()
-        except AttributeError:
-            fileno = fd
-        if timeout is not None:
-            t = self.call_later(timeout, current.throw, timeout_exc)
-        try:
-            event = pyuv.UV_READABLE if read else pyuv.UV_WRITABLE
-            listener = FDListener(self, event, fileno, current.switch)
-            self._add_listener(listener)
-            try:
-                return self.switch()
-            finally:
-                self._remove_listener(listener)
-        finally:
-            if timeout is not None:
-                t.cancel()
-
     # internal
 
     def _handle_error(self, typ, value, tb):
@@ -221,17 +155,6 @@ class Hub(object):
             self.loop.run()
         finally:
             self._cleanup_loop()
-
-    def _add_listener(self, listener):
-        for evtype in self.listeners.iterkeys():
-            if listener.fd in self.listeners[evtype]:
-                raise RuntimeError('listener already registered for %s events for fd %d' % (FDListener.evtype_map[evtype], listener.fd))
-        self.listeners[listener.evtype][listener.fd] = listener
-        listener.start()
-
-    def _remove_listener(self, listener):
-        listener.stop()
-        self.listeners[listener.evtype].pop(listener.fd, None)
 
     def _cleanup_loop(self):
         def cb(handle):
