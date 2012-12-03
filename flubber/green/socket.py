@@ -1,17 +1,27 @@
 
+import sys
 import warnings
 
 import flubber
 
 __socket    = __import__('socket')
 __all__     = __socket.__all__
-__patched__ = ['fromfd', 'socketpair', 'ssl', 'socket', 'gethostbyname', 'gethostbyname_ex', 'getnameinfo', 'getaddrinfo', 'create_connection',]
+__patched__ = ['fromfd', 'socketpair', 'ssl', 'socket', 'SocketType',
+               'gethostbyname', 'gethostbyname_ex', 'getnameinfo', 'getaddrinfo',
+               'create_connection',]
 
 from flubber.patcher import slurp_properties
 slurp_properties(__socket, globals(), ignore=__patched__, srckeys=dir(__socket))
 
-from flubber.io import GreenSocket as socket, _GLOBAL_DEFAULT_TIMEOUT, _fileobject
+from flubber.io import Socket, _fileobject
 
+SocketType = socket = Socket
+
+
+try:
+    _GLOBAL_DEFAULT_TIMEOUT = __socket._GLOBAL_DEFAULT_TIMEOUT
+except AttributeError:
+    _GLOBAL_DEFAULT_TIMEOUT = object()
 
 try:
     __original_fromfd__ = __socket.fromfd
@@ -19,7 +29,6 @@ try:
         return socket(__original_fromfd__(*args))
 except AttributeError:
     pass
-
 
 try:
     __original_socketpair__ = __socket.socketpair
@@ -29,7 +38,6 @@ try:
 except AttributeError:
     pass
 
-
 try:
     from flubber.green import ssl as ssl_module
     sslerror = __socket.sslerror
@@ -37,7 +45,7 @@ try:
     def ssl(sock, certificate=None, private_key=None):
         warnings.warn("socket.ssl() is deprecated.  Use ssl.wrap_socket() instead.", DeprecationWarning, stacklevel=2)
         return ssl_module.sslwrap_simple(sock, private_key, certificate)
-except AttributeError:
+except Exception:
     # if the real socket module doesn't have the ssl method or sslerror
     # exception, we can't emulate them
     pass
@@ -72,13 +80,15 @@ def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT, source_address=N
     *timeout* parameter will set the timeout on the socket instance
     before attempting to connect.  If no *timeout* is supplied, the
     global default timeout setting returned by :func:`getdefaulttimeout`
-    is used.
+    is used. If *source_address* is set it must be a tuple of (host, port)
+    for the socket to bind as a source address before making the connection.
+    An host of '' or port 0 tells the OS to use the default.
     """
 
-    msg = "getaddrinfo returns an empty list"
     host, port = address
-    for res in getaddrinfo(host, port, 0, SOCK_STREAM):
-        af, socktype, proto, canonname, sa = res
+    err = None
+    for res in getaddrinfo(host, port, 0 if has_ipv6 else AF_INET, SOCK_STREAM):
+        af, socktype, proto, _canonname, sa = res
         sock = None
         try:
             sock = socket(af, socktype, proto)
@@ -88,8 +98,16 @@ def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT, source_address=N
                 sock.bind(source_address)
             sock.connect(sa)
             return sock
-        except error, msg:
+        except error:
+            err = sys.exc_info()[1]
+            # without exc_clear(), if connect() fails once, the socket is referenced by the frame in exc_info
+            # and the next bind() fails, that does not happen with regular sockets though,
+            #because _socket.socket.connect() is a built-in.
+            sys.exc_clear()
             if sock is not None:
                 sock.close()
-    raise error, msg
+    if err is not None:
+        raise err
+    else:
+        raise error("getaddrinfo returns an empty list")
 

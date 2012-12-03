@@ -1,320 +1,709 @@
 
-from flubber.core.hub import trampoline
-BUFFER_SIZE = 4096
+from __future__ import absolute_import
 
-import errno
+import array
 import os
-import socket
-from socket import socket as _original_socket
 import sys
 import time
-import warnings
 
-__all__ = ['GreenSocket', 'GreenPipe', 'shutdown_safe']
+is_windows = sys.platform == 'win32'
 
-CONNECT_ERR = set((errno.EINPROGRESS, errno.EALREADY, errno.EWOULDBLOCK))
-CONNECT_SUCCESS = set((0, errno.EISCONN))
-if sys.platform[:3]=="win":
-    CONNECT_ERR.add(errno.WSAEINVAL)   # Bug 67
-
-# Emulate _fileobject class in 3.x implementation
-# Eventually this internal socket structure could be replaced with makefile calls.
-try:
-    _fileobject = socket._fileobject
-except AttributeError:
-   def _fileobject(sock, *args, **kwargs):
-        return _original_socket.makefile(sock, *args, **kwargs)
-
-def socket_connect(descriptor, address):
-    """
-    Attempts to connect to the address, returns the descriptor if it succeeds,
-    returns None if it needs to trampoline, and raises any exceptions.
-    """
-    err = descriptor.connect_ex(address)
-    if err in CONNECT_ERR:
-        return None
-    if err not in CONNECT_SUCCESS:
-        raise socket.error(err, errno.errorcode[err])
-    return descriptor
-
-def socket_checkerr(descriptor):
-    err = descriptor.getsockopt(socket.SOL_SOCKET, socket.SO_ERROR)
-    if err not in CONNECT_SUCCESS:
-        raise socket.error(err, errno.errorcode[err])
-
-def socket_accept(descriptor):
-    """
-    Attempts to accept() on the descriptor, returns a client,address tuple
-    if it succeeds; returns None if it needs to trampoline, and raises
-    any exceptions.
-    """
-    try:
-        return descriptor.accept()
-    except socket.error, e:
-        if e.args[0] == errno.EWOULDBLOCK:
-            return None
-        raise
-
-
-if sys.platform[:3]=="win":
-    # winsock sometimes throws ENOTCONN
-    SOCKET_BLOCKING = set((errno.EWOULDBLOCK,))
-    SOCKET_CLOSED = set((errno.ECONNRESET, errno.ENOTCONN, errno.ESHUTDOWN))
+if is_windows:
+    from errno import WSAEINVAL as EINVAL
+    from errno import WSAEWOULDBLOCK as EWOULDBLOCK
+    from errno import WSAEINPROGRESS as EINPROGRESS
+    from errno import WSAEALREADY as EALREADY
+    from errno import WSAEISCONN as EISCONN
+    EAGAIN = EWOULDBLOCK
 else:
-    # oddly, on linux/darwin, an unconnected socket is expected to block,
-    # so we treat ENOTCONN the same as EWOULDBLOCK
-    SOCKET_BLOCKING = set((errno.EWOULDBLOCK, errno.ENOTCONN))
-    SOCKET_CLOSED = set((errno.ECONNRESET, errno.ESHUTDOWN, errno.EPIPE))
+    from errno import EINVAL
+    from errno import EWOULDBLOCK
+    from errno import EINPROGRESS
+    from errno import EALREADY
+    from errno import EISCONN
+    from errno import EAGAIN
 
-
-def set_nonblocking(fd):
-    """
-    Sets the descriptor to be nonblocking.  Works on many file-like
-    objects as well as sockets.  Only sockets can be nonblocking on
-    Windows, however.
-    """
-    try:
-        setblocking = fd.setblocking
-    except AttributeError:
-        # fd has no setblocking() method. It could be that this version of
-        # Python predates socket.setblocking(). In that case, we can still set
-        # the flag "by hand" on the underlying OS fileno using the fcntl
-        # module.
-        try:
-            import fcntl
-        except ImportError:
-            # Whoops, Windows has no fcntl module. This might not be a socket
-            # at all, but rather a file-like object with no setblocking()
-            # method. In particular, on Windows, pipes don't support
-            # non-blocking I/O and therefore don't have that method. Which
-            # means fcntl wouldn't help even if we could load it.
-            raise NotImplementedError("set_nonblocking() on a file object "
-                                      "with no setblocking() method "
-                                      "(Windows pipes don't support non-blocking I/O)")
-        # We managed to import fcntl.
-        fileno = fd.fileno()
-        flags = fcntl.fcntl(fileno, fcntl.F_GETFL)
-        fcntl.fcntl(fileno, fcntl.F_SETFL, flags | os.O_NONBLOCK)
-    else:
-        # socket supports setblocking()
-        setblocking(0)
-
-
+from errno import ENOTCONN
 try:
-    from socket import _GLOBAL_DEFAULT_TIMEOUT
+    from errno import EBADF
 except ImportError:
-    _GLOBAL_DEFAULT_TIMEOUT = object()
+    EBADF = 9
+
+import _socket
+_realsocket = _socket.socket
+import socket as __socket__
+from socket import _fileobject, error, timeout
+
+import ssl as __ssl__
+_ssl = __ssl__._ssl
+from ssl import SSLError, SSL_ERROR_EOF, SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE
+
+import pyuv
+import flubber
+
+from flubber.core.hub import trampoline
+from flubber.event import Event
+from flubber.timeout import Timeout
+
+__all__ = ['Socket', 'SSLSocket', 'Pipe']
 
 
-class GreenSocket(object):
-    """
-    Green version of socket.socket class, that is intended to be 100%
-    API-compatible.
-    """
-    def __init__(self, family_or_realsock=socket.AF_INET, *args, **kwargs):
-        if isinstance(family_or_realsock, (int, long)):
-            fd = _original_socket(family_or_realsock, *args, **kwargs)
-        else:
-            fd = family_or_realsock
-            assert not args, args
-            assert not kwargs, kwargs
+class IOWaiter(object):
 
-        # import timeout from other socket, if it was there
-        try:
-            self._timeout = fd.gettimeout() or socket.getdefaulttimeout()
-        except AttributeError:
-            self._timeout = socket.getdefaulttimeout()
-
-        set_nonblocking(fd)
+    def __init__(self, fd):
         self.fd = fd
-        # when client calls setblocking(0) or settimeout(0) the socket must
-        # act non-blocking
-        self.act_non_blocking = False
+        hub = flubber.current.hub
+        self._handle = pyuv.Poll(hub.loop, fd)
+        self._events = 0
+        self._closed_error = None
+        self._read_event = Event()
+        self._write_event = Event()
 
-    @property
-    def _sock(self):
-        return self
+    def wait_read(self, timeout=None, timeout_exc=None):
+        if self._closed_error is not None:
+            raise self._closed_error
+        self._read_event.clear()
+        self._events |= pyuv.UV_READABLE
+        self._handle.start(self._events, self._poll_cb)
+        self._wait(self._read_event, timeout, timeout_exc)
 
-    #forward unknown attibutes to fd
-    # cache the value for future use.
-    # I do not see any simple attribute which could be changed
-    # so caching everything in self is fine,
-    # If we find such attributes - only attributes having __get__ might be cahed.
-    # For now - I do not want to complicate it.
-    def __getattr__(self, name):
-        attr = getattr(self.fd, name)
-        setattr(self, name, attr)
-        return attr
+    def wait_write(self, timeout=None, timeout_exc=None):
+        if self._closed_error is not None:
+            raise self._closed_error
+        self._write_event.clear()
+        self._events |= pyuv.UV_WRITABLE
+        self._handle.start(self._events, self._poll_cb)
+        self._wait(self._write_event, timeout, timeout_exc)
+
+    def close(self, error):
+        self._closed_error = error
+        self._handle.close()
+        self._events = 0
+        self._read_event.set()
+        self._write_event.set()
+
+    def _wait(self, event, timeout, timeout_exc):
+        with Timeout(timeout, timeout_exc) as t:
+            try:
+                event.wait()
+            except Timeout as e:
+                if e is not t:
+                    raise
+        if self._closed_error is not None:
+            raise self._closed_error
+
+    def _poll_cb(self, handle, events, error):
+        if error is not None:
+            # There was an error, signal both readability and writablity so that waiters
+            # can get the error
+            self._events = 0
+            self._read_event.set()
+            self._write_event.set()
+        else:
+            if events & pyuv.UV_READABLE:
+                self._events & ~pyuv.UV_READABLE
+                self._read_event.set()
+            if events & pyuv.UV_WRITABLE:
+                self._events & ~pyuv.UV_WRITABLE
+                self._write_event.set()
+        if self._events == 0:
+            self._handle.stop()
+        else:
+            self._handle.start(self._events, self._poll_cb)
+
+    def __repr__(self):
+        return '<%s fd=%d>' % (self.__class__.__name__, self.fd)
+
+
+def _get_memory(string, offset):
+    try:
+        return memoryview(string)[offset:]
+    except TypeError:
+        return buffer(string, offset)
+
+
+class _closedsocket(object):
+    __slots__ = []
+
+    def _dummy(*args, **kwargs):
+        raise error(EBADF, 'Bad file descriptor')
+    # All _delegate_methods must also be initialized here.
+    send = recv = recv_into = sendto = recvfrom = recvfrom_into = _dummy
+    __getattr__ = _dummy
+
+
+cancel_wait_ex = error(EBADF, 'File descriptor was closed by another task')
+
+
+class Socket(object):
+
+    def __init__(self, family=__socket__.AF_INET, type=__socket__.SOCK_STREAM, proto=0, _sock=None):
+        if _sock is None:
+            self._sock = _realsocket(family, type, proto)
+            self.timeout = _socket.getdefaulttimeout()
+        else:
+            if hasattr(_sock, '_sock'):
+                self._sock = _sock._sock
+                self.timeout = getattr(_sock, 'timeout', False)
+                if self.timeout is False:
+                    self.timeout = _socket.getdefaulttimeout()
+            else:
+                self._sock = _sock
+                self.timeout = _socket.getdefaulttimeout()
+        self._sock.setblocking(0)
+        self._io = IOWaiter(self._sock.fileno())
+
+    def __repr__(self):
+        return '<%s at %s %s>' % (type(self).__name__, hex(id(self)), self._formatinfo())
+
+    def __str__(self):
+        return '<%s %s>' % (type(self).__name__, self._formatinfo())
+
+    def _formatinfo(self):
+        try:
+            fileno = self.fileno()
+        except Exception:
+            fileno = str(sys.exc_info()[1])
+        try:
+            sockname = self.getsockname()
+            sockname = '%s:%s' % sockname
+        except Exception:
+            sockname = None
+        try:
+            peername = self.getpeername()
+            peername = '%s:%s' % peername
+        except Exception:
+            peername = None
+        result = 'fileno=%s' % fileno
+        if sockname is not None:
+            result += ' sock=' + str(sockname)
+        if peername is not None:
+            result += ' peer=' + str(peername)
+        if getattr(self, 'timeout', None) is not None:
+            result += ' timeout=' + str(self.timeout)
+        return result
 
     def accept(self):
-        if self.act_non_blocking:
-            return self.fd.accept()
-        fd = self.fd
+        sock = self._sock
         while True:
-            res = socket_accept(fd)
-            if res is not None:
-                client, addr = res
-                set_nonblocking(client)
-                return type(self)(client), addr
-            trampoline(fd, read=True, timeout=self.gettimeout(),
-                           timeout_exc=socket.timeout("timed out"))
+            try:
+                client_socket, address = sock.accept()
+                break
+            except error:
+                ex = sys.exc_info()[1]
+                if ex[0] != EWOULDBLOCK or self.timeout == 0.0:
+                    raise
+                sys.exc_clear()
+            self._io.wait_read(timeout=self.timeout, timeout_exc=timeout('timed out'))
+        return Socket(_sock=client_socket), address
+
+    def close(self, _closedsocket=_closedsocket, cancel_wait_ex=cancel_wait_ex):
+        # This function should not reference any globals. See Python issue #808164.
+        self._io.close(cancel_wait_ex)
+        self._sock = _closedsocket()
+
+    @property
+    def closed(self):
+        return isinstance(self._sock, _closedsocket)
 
     def connect(self, address):
-        if self.act_non_blocking:
-            return self.fd.connect(address)
-        fd = self.fd
-        if self.gettimeout() is None:
-            while not socket_connect(fd, address):
-                trampoline(fd, write=True)
-                socket_checkerr(fd)
-        else:
-            end = time.time() + self.gettimeout()
+        if self.timeout == 0.0:
+            return self._sock.connect(address)
+        sock = self._sock
+        if isinstance(address, tuple):
+            hub = flubber.current.hub
+            r = hub.threadpool.spawn(__socket__.getaddrinfo, address[0], address[1], sock.family, sock.type, sock.proto).result()
+            address = r[0][-1]
+        timer = Timeout(self.timeout, timeout('timed out'))
+        timer.start()
+        try:
             while True:
-                if socket_connect(fd, address):
-                    return
-                if time.time() >= end:
-                    raise socket.timeout("timed out")
-                trampoline(fd, write=True, timeout=end-time.time(),
-                        timeout_exc=socket.timeout("timed out"))
-                socket_checkerr(fd)
+                err = sock.getsockopt(__socket__.SOL_SOCKET, __socket__.SO_ERROR)
+                if err:
+                    raise error(err, os.strerror(err))
+                result = sock.connect_ex(address)
+                if not result or result == EISCONN:
+                    break
+                elif (result in (EWOULDBLOCK, EINPROGRESS, EALREADY)) or (result == EINVAL and is_windows):
+                    self._io.wait_write()
+                else:
+                    raise error(result, os.strerror(result))
+        finally:
+            timer.cancel()
 
     def connect_ex(self, address):
-        if self.act_non_blocking:
-            return self.fd.connect_ex(address)
-        fd = self.fd
-        if self.gettimeout() is None:
-            while not socket_connect(fd, address):
-                try:
-                    trampoline(fd, write=True)
-                    socket_checkerr(fd)
-                except socket.error, e:
-                    return e.args[0]
-        else:
-            end = time.time() + self.gettimeout()
-            while True:
-                try:
-                    if socket_connect(fd, address):
-                        return 0
-                    if time.time() >= end:
-                        raise socket.timeout(errno.EAGAIN)
-                    trampoline(fd, write=True, timeout=end-time.time(),
-                            timeout_exc=socket.timeout(errno.EAGAIN))
-                    socket_checkerr(fd)
-                except socket.error, e:
-                    return e.args[0]
+        try:
+            return self.connect(address) or 0
+        except timeout:
+            return EAGAIN
+        except error:
+            ex = sys.exc_info()[1]
+            if type(ex) is error:
+                return ex.args[0]
+            else:
+                raise  # gaierror is not silented by connect_ex
 
-    def dup(self, *args, **kw):
-        sock = self.fd.dup(*args, **kw)
-        set_nonblocking(sock)
-        newsock = type(self)(sock)
-        newsock.settimeout(self.gettimeout())
-        return newsock
+    def dup(self):
+        """dup() -> socket object
 
-    def makefile(self, *args, **kw):
-        return _fileobject(self.dup(), *args, **kw)
+        Return a new socket object connected to the same system resource.
+        Note, that the new socket does not inherit the timeout."""
+        return Socket(_sock=self._sock)
 
-    def recv(self, buflen, flags=0):
-        fd = self.fd
-        if self.act_non_blocking:
-            return fd.recv(buflen, flags)
+    def makefile(self, mode='r', bufsize=-1):
+        # Two things to look out for:
+        # 1) Closing the original socket object should not close the
+        #    socket (hence creating a new instance)
+        # 2) The resulting fileobject must keep the timeout in order
+        #    to be compatible with the stdlib's socket.makefile.
+        return _fileobject(type(self)(_sock=self), mode, bufsize)
+
+    def recv(self, *args):
+        sock = self._sock  # keeping the reference so that fd is not closed during waiting
         while True:
             try:
-                return fd.recv(buflen, flags)
-            except socket.error, e:
-                if e.args[0] in SOCKET_BLOCKING:
-                    pass
-                elif e.args[0] in SOCKET_CLOSED:
-                    return ''
-                else:
+                return sock.recv(*args)
+            except error:
+                ex = sys.exc_info()[1]
+                if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                     raise
-            trampoline(fd,
-                read=True,
-                timeout=self.gettimeout(),
-                timeout_exc=socket.timeout("timed out"))
+                # without clearing exc_info test__refcount.test_clean_exit fails
+                sys.exc_clear()
+            self._io.wait_read(timeout=self.timeout, timeout_exc=timeout('timed out'))
 
     def recvfrom(self, *args):
-        if not self.act_non_blocking:
-            trampoline(self.fd, read=True, timeout=self.gettimeout(),
-                    timeout_exc=socket.timeout("timed out"))
-        return self.fd.recvfrom(*args)
+        sock = self._sock
+        while True:
+            try:
+                return sock.recvfrom(*args)
+            except error:
+                ex = sys.exc_info()[1]
+                if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
+                    raise
+                sys.exc_clear()
+            self._io.wait_read(timeout=self.timeout, timeout_exc=timeout('timed out'))
 
     def recvfrom_into(self, *args):
-        if not self.act_non_blocking:
-            trampoline(self.fd, read=True, timeout=self.gettimeout(),
-                    timeout_exc=socket.timeout("timed out"))
-        return self.fd.recvfrom_into(*args)
+        sock = self._sock
+        while True:
+            try:
+                return sock.recvfrom_into(*args)
+            except error:
+                ex = sys.exc_info()[1]
+                if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
+                    raise
+                sys.exc_clear()
+            self._io.wait_read(timeout=self.timeout, timeout_exc=timeout('timed out'))
 
     def recv_into(self, *args):
-        if not self.act_non_blocking:
-            trampoline(self.fd, read=True, timeout=self.gettimeout(),
-                    timeout_exc=socket.timeout("timed out"))
-        return self.fd.recv_into(*args)
+        sock = self._sock
+        while True:
+            try:
+                return sock.recv_into(*args)
+            except error:
+                ex = sys.exc_info()[1]
+                if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
+                    raise
+                sys.exc_clear()
+            self._io.wait_read(timeout=self.timeout, timeout_exc=timeout('timed out'))
 
     def send(self, data, flags=0):
-        fd = self.fd
-        if self.act_non_blocking:
-            return fd.send(data, flags)
-
-        # blocking socket behavior - sends all, blocks if the buffer is full
-        total_sent = 0
-        len_data = len(data)
-
-        while 1:
+        sock = self._sock
+        try:
+            return sock.send(data, flags)
+        except error:
+            ex = sys.exc_info()[1]
+            if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
+                raise
+            sys.exc_clear()
+            self._io.wait_write(timeout=self.timeout, timeout_exc=timeout('timed out'))
             try:
-                total_sent += fd.send(data[total_sent:], flags)
-            except socket.error, e:
-                if e.args[0] not in SOCKET_BLOCKING:
-                    raise
-
-            if total_sent == len_data:
-                break
-
-            trampoline(self.fd, write=True, timeout=self.gettimeout(),
-                    timeout_exc=socket.timeout("timed out"))
-
-        return total_sent
+                return sock.send(data, flags)
+            except error:
+                ex2 = sys.exc_info()[1]
+                if ex2.args[0] == EWOULDBLOCK:
+                    return 0
+                raise
 
     def sendall(self, data, flags=0):
-        tail = self.send(data, flags)
-        len_data = len(data)
-        while tail < len_data:
-            tail += self.send(data[tail:], flags)
+        if self.timeout is None:
+            data_sent = 0
+            while data_sent < len(data):
+                data_sent += self.send(_get_memory(data, data_sent), flags)
+        else:
+            timeleft = self.timeout
+            end = time.time() + timeleft
+            data_sent = 0
+            while True:
+                data_sent += self.send(_get_memory(data, data_sent), flags, timeout=timeleft)
+                if data_sent >= len(data):
+                    break
+                timeleft = end - time.time()
+                if timeleft <= 0:
+                    raise timeout('timed out')
 
     def sendto(self, *args):
-        trampoline(self.fd, write=True)
-        return self.fd.sendto(*args)
+        sock = self._sock
+        try:
+            return sock.sendto(*args)
+        except error:
+            ex = sys.exc_info()[1]
+            if ex.args[0] != EWOULDBLOCK or timeout == 0.0:
+                raise
+            sys.exc_clear()
+            self._io.wait_write(timeout=self.timeout, timeout_exc=timeout('timed out'))
+            try:
+                return sock.sendto(*args)
+            except error:
+                ex2 = sys.exc_info()[1]
+                if ex2.args[0] == EWOULDBLOCK:
+                    return 0
+                raise
 
     def setblocking(self, flag):
         if flag:
-            self.act_non_blocking = False
-            self._timeout = None
+            self.timeout = None
         else:
-            self.act_non_blocking = True
-            self._timeout = 0.0
+            self.timeout = 0.0
 
     def settimeout(self, howlong):
-        if howlong is None or howlong == _GLOBAL_DEFAULT_TIMEOUT:
-            self.setblocking(True)
-            return
-        try:
-            f = howlong.__float__
-        except AttributeError:
-            raise TypeError('a float is required')
-        howlong = f()
-        if howlong < 0.0:
-            raise ValueError('Timeout value out of range')
-        if howlong == 0.0:
-            self.setblocking(howlong)
-        else:
-            self._timeout = howlong
+        if howlong is not None:
+            try:
+                f = howlong.__float__
+            except AttributeError:
+                raise TypeError('a float is required')
+            howlong = f()
+            if howlong < 0.0:
+                raise ValueError('Timeout value out of range')
+        self.timeout = howlong
 
     def gettimeout(self):
-        return self._timeout
+        return self.timeout
+
+    def shutdown(self, how):
+        # TODO: close the io waiter?
+        self._sock.shutdown(how)
+
+    family = property(lambda self: self._sock.family, doc="the socket family")
+    type = property(lambda self: self._sock.type, doc="the socket type")
+    proto = property(lambda self: self._sock.proto, doc="the socket protocol")
+
+    # delegate the functions that we haven't implemented to the real socket object
+
+    _s = ("def %s(self, *args): return self._sock.%s(*args)\n\n"
+          "%s.__doc__ = _realsocket.%s.__doc__\n")
+    for _m in set(__socket__._socketmethods) - set(locals()):
+        exec (_s % (_m, _m, _m, _m))
+    del _m, _s
+
+
+if sys.version_info >= (2,7):
+    ssl_timeout_exc = SSLError
+else:
+    ssl_timeout_exc = timeout
+
+_SSLErrorReadTimeout = ssl_timeout_exc('The read operation timed out')
+_SSLErrorWriteTimeout = ssl_timeout_exc('The write operation timed out')
+_SSLErrorHandshakeTimeout = ssl_timeout_exc('The handshake operation timed out')
+
+
+class SSLSocket(Socket):
+
+    def __init__(self, sock, keyfile=None, certfile=None,
+                 server_side=False, cert_reqs=__ssl__.CERT_NONE,
+                 ssl_version=__ssl__.PROTOCOL_SSLv23, ca_certs=None,
+                 do_handshake_on_connect=True,
+                 suppress_ragged_eofs=True,
+                 ciphers=None):
+        Socket.__init__(self, _sock=sock)
+
+        if certfile and not keyfile:
+            keyfile = certfile
+        # see if it's connected
+        try:
+            Socket.getpeername(self)
+        except error, e:
+            if e[0] != ENOTCONN:
+                raise
+            # no, no connection yet
+            self._sslobj = None
+        else:
+            # yes, create the SSL object
+            if ciphers is None:
+                self._sslobj = _ssl.sslwrap(self._sock, server_side,
+                                            keyfile, certfile,
+                                            cert_reqs, ssl_version, ca_certs)
+            else:
+                self._sslobj = _ssl.sslwrap(self._sock, server_side,
+                                            keyfile, certfile,
+                                            cert_reqs, ssl_version, ca_certs,
+                                            ciphers)
+            if do_handshake_on_connect:
+                self.do_handshake()
+        self.keyfile = keyfile
+        self.certfile = certfile
+        self.cert_reqs = cert_reqs
+        self.ssl_version = ssl_version
+        self.ca_certs = ca_certs
+        self.ciphers = ciphers
+        self.do_handshake_on_connect = do_handshake_on_connect
+        self.suppress_ragged_eofs = suppress_ragged_eofs
+        self._makefile_refs = 0
+
+    def read(self, len=1024):
+        """Read up to LEN bytes and return them.
+        Return zero-length string on EOF."""
+        while True:
+            try:
+                return self._sslobj.read(len)
+            except SSLError:
+                ex = sys.exc_info()[1]
+                if ex.args[0] == SSL_ERROR_EOF and self.suppress_ragged_eofs:
+                    return ''
+                elif ex.args[0] == SSL_ERROR_WANT_READ:
+                    if self.timeout == 0.0:
+                        raise
+                    sys.exc_clear()
+                    self._io.wait_read(timeout=self.timeout, timeout_exc=_SSLErrorReadTimeout)
+                elif ex.args[0] == SSL_ERROR_WANT_WRITE:
+                    if self.timeout == 0.0:
+                        raise
+                    sys.exc_clear()
+                    self._io.wait_write(timeout=self.timeout, timeout_exc=_SSLErrorReadTimeout)
+                else:
+                    raise
+
+    def write(self, data):
+        """Write DATA to the underlying SSL channel.  Returns
+        number of bytes of DATA actually transmitted."""
+        while True:
+            try:
+                return self._sslobj.write(data)
+            except SSLError:
+                ex = sys.exc_info()[1]
+                if ex.args[0] == SSL_ERROR_WANT_READ:
+                    if self.timeout == 0.0:
+                        raise
+                    sys.exc_clear()
+                    self._io.wait_read(timeout=self.timeout, timeout_exc=_SSLErrorWriteTimeout)
+                elif ex.args[0] == SSL_ERROR_WANT_WRITE:
+                    if self.timeout == 0.0:
+                        raise
+                    sys.exc_clear()
+                    self._io.wait_write(timeout=self.timeout, timeout_exc=_SSLErrorWriteTimeout)
+                else:
+                    raise
+
+    def getpeercert(self, binary_form=False):
+        """Returns a formatted version of the data in the
+        certificate provided by the other end of the SSL channel.
+        Return None if no certificate was provided, {} if a
+        certificate was provided, but not validated."""
+        return self._sslobj.peer_certificate(binary_form)
+
+    def cipher(self):
+        if not self._sslobj:
+            return None
+        else:
+            return self._sslobj.cipher()
+
+    def send(self, data, flags=0):
+        if self._sslobj:
+            if flags != 0:
+                raise ValueError("non-zero flags not allowed in calls to send() on %s" % self.__class__)
+            while True:
+                try:
+                    v = self._sslobj.write(data)
+                except SSLError:
+                    x = sys.exc_info()[1]
+                    if x.args[0] == SSL_ERROR_WANT_READ:
+                        if self.timeout == 0.0:
+                            return 0
+                        sys.exc_clear()
+                        self._io.wait_read(timeout=self.timeout, timeout_exc=timeout('timed out'))
+                    elif x.args[0] == SSL_ERROR_WANT_WRITE:
+                        if self.timeout == 0.0:
+                            return 0
+                        sys.exc_clear()
+                        self._io.wait_write(timeout=self.timeout, timeout_exc=timeout('timed out'))
+                    else:
+                        raise
+                else:
+                    return v
+        else:
+            return Socket.send(self, data, flags)
+
+    def sendto(self, *args):
+        if self._sslobj:
+            raise ValueError("sendto not allowed on instances of %s" % self.__class__)
+        else:
+            return Socket.sendto(self, *args)
+
+    def recv(self, buflen=1024, flags=0):
+        if self._sslobj:
+            if flags != 0:
+                raise ValueError("non-zero flags not allowed in calls to recv() on %s" % self.__class__)
+            # Shouldn't we wrap the SSL_WANT_READ errors as socket.timeout errors to match socket.recv's behavior?
+            return self.read(buflen)
+        else:
+            return Socket.recv(self, buflen, flags)
+
+    def recv_into(self, buffer, nbytes=None, flags=0):
+        if buffer and (nbytes is None):
+            nbytes = len(buffer)
+        elif nbytes is None:
+            nbytes = 1024
+        if self._sslobj:
+            if flags != 0:
+                raise ValueError("non-zero flags not allowed in calls to recv_into() on %s" % self.__class__)
+            while True:
+                try:
+                    tmp_buffer = self.read(nbytes)
+                    v = len(tmp_buffer)
+                    buffer[:v] = tmp_buffer
+                    return v
+                except SSLError:
+                    x = sys.exc_info()[1]
+                    if x.args[0] == SSL_ERROR_WANT_READ:
+                        if self.timeout == 0.0:
+                            raise
+                        sys.exc_clear()
+                        self._io.wait_read(timeout=self.timeout, timeout_exc=timeout('timed out'))
+                        continue
+                    else:
+                        raise
+        else:
+            return Socket.recv_into(self, buffer, nbytes, flags)
+
+    def recvfrom(self, *args):
+        if self._sslobj:
+            raise ValueError("recvfrom not allowed on instances of %s" % self.__class__)
+        else:
+            return Socket.recvfrom(self, *args)
+
+    def recvfrom_into(self, *args):
+        if self._sslobj:
+            raise ValueError("recvfrom_into not allowed on instances of %s" % self.__class__)
+        else:
+            return Socket.recvfrom_into(self, *args)
+
+    def pending(self):
+        if self._sslobj:
+            return self._sslobj.pending()
+        else:
+            return 0
+
+    def _sslobj_shutdown(self):
+        while True:
+            try:
+                return self._sslobj.shutdown()
+            except SSLError:
+                ex = sys.exc_info()[1]
+                if ex.args[0] == SSL_ERROR_EOF and self.suppress_ragged_eofs:
+                    return ''
+                elif ex.args[0] == SSL_ERROR_WANT_READ:
+                    if self.timeout == 0.0:
+                        raise
+                    sys.exc_clear()
+                    self._io.wait_read(timeout=self.timeout, timeout_exc=_SSLErrorReadTimeout)
+                elif ex.args[0] == SSL_ERROR_WANT_WRITE:
+                    if self.timeout == 0.0:
+                        raise
+                    sys.exc_clear()
+                    self._io.wait_write(timeout=self.timeout, timeout_exc=_SSLErrorWriteTimeout)
+                else:
+                    raise
+
+    def unwrap(self):
+        if self._sslobj:
+            s = self._sslobj_shutdown()
+            self._sslobj = None
+            return Socket(_sock=s)
+        else:
+            raise ValueError("No SSL wrapper around " + str(self))
+
+    def shutdown(self, how):
+        self._sslobj = None
+        Socket.shutdown(self, how)
+
+    def close(self):
+        if self._makefile_refs < 1:
+            self._sslobj = None
+            Socket.close(self)
+        else:
+            self._makefile_refs -= 1
+
+    def do_handshake(self):
+        """Perform a TLS/SSL handshake."""
+        while True:
+            try:
+                return self._sslobj.do_handshake()
+            except SSLError:
+                ex = sys.exc_info()[1]
+                if ex.args[0] == SSL_ERROR_WANT_READ:
+                    if self.timeout == 0.0:
+                        raise
+                    sys.exc_clear()
+                    self._io.wait_read(timeout=self.timeout, timeout_exc=_SSLErrorHandshakeTimeout)
+                elif ex.args[0] == SSL_ERROR_WANT_WRITE:
+                    if self.timeout == 0.0:
+                        raise
+                    sys.exc_clear()
+                    self._io.wait_write(timeout=self.timeout, timeout_exc=_SSLErrorHandshakeTimeout)
+                else:
+                    raise
+
+    def connect(self, addr):
+        """Connects to remote ADDR, and then wraps the connection in
+        an SSL channel."""
+        # Here we assume that the socket is client-side, and not
+        # connected at the time of the call.  We connect it, then wrap it.
+        if self._sslobj:
+            raise ValueError("attempt to connect already-connected SSLSocket!")
+        Socket.connect(self, addr)
+        if self.ciphers is None:
+            self._sslobj = _ssl.sslwrap(self._sock, False, self.keyfile, self.certfile,
+                                        self.cert_reqs, self.ssl_version,
+                                        self.ca_certs)
+        else:
+            self._sslobj = _ssl.sslwrap(self._sock, False, self.keyfile, self.certfile,
+                                        self.cert_reqs, self.ssl_version,
+                                        self.ca_certs, self.ciphers)
+        if self.do_handshake_on_connect:
+            self.do_handshake()
+
+    def accept(self):
+        """Accepts a new connection from a remote client, and returns
+        a tuple containing that new connection wrapped with a server-side
+        SSL channel, and the address of the remote client."""
+        newsock, addr = Socket.accept(self)
+        ssl_sock = SSLSocket(newsock._sock,
+                             keyfile=self.keyfile,
+                             certfile=self.certfile,
+                             server_side=True,
+                             cert_reqs=self.cert_reqs,
+                             ssl_version=self.ssl_version,
+                             ca_certs=self.ca_certs,
+                             do_handshake_on_connect=self.do_handshake_on_connect,
+                             suppress_ragged_eofs=self.suppress_ragged_eofs,
+                             ciphers=self.ciphers)
+        return ssl_sock, addr
+
+    def makefile(self, mode='r', bufsize=-1):
+        """Make and return a file-like object that
+        works with the SSL connection.  Just use the code
+        from the socket module."""
+        self._makefile_refs += 1
+        # close=True so as to decrement the reference count when done with
+        # the file-like object.
+        return _fileobject(self, mode, bufsize, close=True)
+
 
 class _SocketDuckForFd(object):
     """ Class implementing all socket method used by _fileobject in cooperative manner using low level os I/O calls."""
     def __init__(self, fileno):
         self._fileno = fileno
+        # TODO: don't use trampoline here
 
     @property
     def _sock(self):
@@ -329,7 +718,7 @@ class _SocketDuckForFd(object):
                 data = os.read(self._fileno, buflen)
                 return data
             except OSError, e:
-                if e.args[0] != errno.EAGAIN:
+                if e.args[0] != EAGAIN:
                     raise IOError(*e.args)
             trampoline(self, read=True)
 
@@ -340,7 +729,7 @@ class _SocketDuckForFd(object):
         try:
             total_sent = os_write(fileno, data)
         except OSError, e:
-            if e.args[0] != errno.EAGAIN:
+            if e.args[0] != EAGAIN:
                 raise IOError(*e.args)
             total_sent = 0
         while total_sent <len_data:
@@ -348,7 +737,7 @@ class _SocketDuckForFd(object):
             try:
                 total_sent += os_write(fileno, data[total_sent:])
             except OSError, e:
-                if e.args[0] != errno. EAGAIN:
+                if e.args[0] != EAGAIN:
                     raise IOError(*e.args)
 
     def __del__(self):
@@ -361,10 +750,12 @@ class _SocketDuckForFd(object):
     def __repr__(self):
         return "%s:%d" % (self.__class__.__name__, self._fileno)
 
+
 def _operationOnClosedFile(*args, **kwargs):
     raise ValueError("I/O operation on closed file")
 
-class GreenPipe(_fileobject):
+
+class Pipe(_fileobject):
     """
     GreenPipe is a cooperative replacement for file class.
     It will cooperate on pipes. It will block on regular file.
@@ -394,12 +785,14 @@ class GreenPipe(_fileobject):
             self._name = f.name
             f.close()
 
-        super(GreenPipe, self).__init__(_SocketDuckForFd(fileno), mode, bufsize)
-        set_nonblocking(self)
+        super(Pipe, self).__init__(_SocketDuckForFd(fileno), mode, bufsize)
+        # TODO fix this
+        #set_nonblocking(self)
         self.softspace = 0
 
     @property
-    def name(self): return self._name
+    def name(self):
+        return self._name
 
     def __repr__(self):
         return "<%s %s %r, mode %r at 0x%x>" % (
@@ -407,10 +800,10 @@ class GreenPipe(_fileobject):
             self.__class__.__name__,
             self.name,
             self.mode,
-            (id(self) < 0) and (sys.maxint +id(self)) or id(self))
+            id(self))
 
     def close(self):
-        super(GreenPipe, self).close()
+        super(Pipe, self).close()
         for method in ['fileno', 'flush', 'isatty', 'next', 'read', 'readinto',
                    'readline', 'readlines', 'seek', 'tell', 'truncate',
                    'write', 'xreadlines', '__iter__', 'writelines']:
@@ -424,7 +817,7 @@ class GreenPipe(_fileobject):
             self.close()
 
     def xreadlines(self, buffer):
-        return iterator(self)
+        return iter(self)
 
     def readinto(self, buf):
         data = self.read(len(buf)) #FIXME could it be done without allocating intermediate?
@@ -484,27 +877,4 @@ class GreenPipe(_fileobject):
             return os.isatty(self.fileno())
         except OSError, e:
             raise IOError(*e.args)
-
-
-def shutdown_safe(sock):
-    """ Shuts down the socket. This is a convenience method for
-    code that wants to gracefully handle regular sockets, SSL.Connection
-    sockets from PyOpenSSL and ssl.SSLSocket objects from Python 2.6
-    interchangeably.  Both types of ssl socket require a shutdown() before
-    close, but they have different arity on their shutdown method.
-
-    Regular sockets don't need a shutdown before close, but it doesn't hurt.
-    """
-    try:
-        try:
-            # socket, ssl.SSLSocket
-            return sock.shutdown(socket.SHUT_RDWR)
-        except TypeError:
-            # SSL.Connection
-            return sock.shutdown()
-    except socket.error, e:
-        # we don't care if the socket is already closed;
-        # this will often be the case in an http server context
-        if e.args[0] != errno.ENOTCONN:
-            raise
 
