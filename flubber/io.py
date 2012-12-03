@@ -44,7 +44,6 @@ from ssl import SSLError, SSL_ERROR_EOF, SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRI
 import pyuv
 import flubber
 
-from flubber.core.hub import trampoline
 from flubber.event import Event
 from flubber.timeout import Timeout
 
@@ -706,7 +705,7 @@ class _SocketDuckForFd(object):
     """ Class implementing all socket method used by _fileobject in cooperative manner using low level os I/O calls."""
     def __init__(self, fileno):
         self._fileno = fileno
-        # TODO: don't use trampoline here
+        self._io = IOWaiter(fileno)
 
     @property
     def _sock(self):
@@ -723,7 +722,7 @@ class _SocketDuckForFd(object):
             except OSError, e:
                 if e.args[0] != EAGAIN:
                     raise IOError(*e.args)
-            trampoline(self, read=True)
+            self._io.wait_read()
 
     def sendall(self, data):
         len_data = len(data)
@@ -735,8 +734,8 @@ class _SocketDuckForFd(object):
             if e.args[0] != EAGAIN:
                 raise IOError(*e.args)
             total_sent = 0
-        while total_sent <len_data:
-            trampoline(self, write=True)
+        while total_sent < len_data:
+            self._io.wait_write()
             try:
                 total_sent += os_write(fileno, data[total_sent:])
             except OSError, e:
@@ -760,7 +759,7 @@ def _operationOnClosedFile(*args, **kwargs):
 
 class Pipe(_fileobject):
     """
-    GreenPipe is a cooperative replacement for file class.
+    Pipe is a cooperative replacement for file class.
     It will cooperate on pipes. It will block on regular file.
     Differneces from file class:
     - mode is r/w property. Should re r/o
@@ -789,8 +788,7 @@ class Pipe(_fileobject):
             f.close()
 
         super(Pipe, self).__init__(_SocketDuckForFd(fileno), mode, bufsize)
-        # TODO fix this
-        #set_nonblocking(self)
+        self._set_nonblocking(self)
         self.softspace = 0
 
     @property
@@ -823,7 +821,8 @@ class Pipe(_fileobject):
         return iter(self)
 
     def readinto(self, buf):
-        data = self.read(len(buf)) #FIXME could it be done without allocating intermediate?
+        #FIXME could it be done without allocating intermediate?
+        data = self.read(len(buf))
         n = len(data)
         try:
             buf[:n] = data
@@ -880,4 +879,36 @@ class Pipe(_fileobject):
             return os.isatty(self.fileno())
         except OSError, e:
             raise IOError(*e.args)
+
+    def _set_nonblocking(self, fd):
+        """
+        Sets the descriptor to be nonblocking.  Works on many file-like
+        objects as well as sockets.  Only sockets can be nonblocking on
+        Windows, however.
+        """
+        try:
+            setblocking = fd.setblocking
+        except AttributeError:
+            # fd has no setblocking() method. It could be that this version of
+            # Python predates socket.setblocking(). In that case, we can still set
+            # the flag "by hand" on the underlying OS fileno using the fcntl
+            # module.
+            try:
+                import fcntl
+            except ImportError:
+                # Whoops, Windows has no fcntl module. This might not be a socket
+                # at all, but rather a file-like object with no setblocking()
+                # method. In particular, on Windows, pipes don't support
+                # non-blocking I/O and therefore don't have that method. Which
+                # means fcntl wouldn't help even if we could load it.
+                raise NotImplementedError("set_nonblocking() on a file object "
+                                        "with no setblocking() method "
+                                        "(Windows pipes don't support non-blocking I/O)")
+            # We managed to import fcntl.
+            fileno = fd.fileno()
+            flags = fcntl.fcntl(fileno, fcntl.F_GETFL)
+            fcntl.fcntl(fileno, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+        else:
+            # socket supports setblocking()
+            setblocking(0)
 
