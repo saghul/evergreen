@@ -1,49 +1,32 @@
-#!/usr/bin/env python
+# coding=utf8
+
+from distutils.core import setup
+from flubber import __version__
 
 
-from setuptools import find_packages, setup
-from eventlet import __version__
-from os import path
-import sys
-
-requirements = []
-for flag, req in [('--without-greenlet','greenlet >= 0.3')]:
-    if flag in sys.argv:
-        sys.argv.remove(flag)
-    else:
-        requirements.append(req)
-
-setup(
-    name='eventlet',
-    version=__version__,
-    description='Highly concurrent networking library',
-    author='Linden Lab',
-    author_email='eventletdev@lists.secondlife.com',
-    url='http://eventlet.net',
-    packages=find_packages(exclude=['tests', 'benchmarks']),
-    install_requires=requirements,
-    zip_safe=False,
-    long_description=open(
-        path.join(
-            path.dirname(__file__),
-            'README'
-        )
-    ).read(),
-    test_suite = 'nose.collector',
-    tests_require = 'httplib2',
-    classifiers=[
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python",
-    "Operating System :: MacOS :: MacOS X",
-    "Operating System :: POSIX",
-    "Operating System :: Microsoft :: Windows",
-    "Programming Language :: Python :: 2.4",
-    "Programming Language :: Python :: 2.5",
-    "Programming Language :: Python :: 2.6",
-    "Programming Language :: Python :: 2.7",
-    "Topic :: Internet",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Intended Audience :: Developers",
-    "Development Status :: 4 - Beta"]
-    )
+setup(name             = "flubber",
+      version          = __version__,
+      author           = "Saúl Ibarra Corretgé",
+      author_email     = "saghul@gmail.com",
+      url              = "http://github.com/saghul/flubber", # not yet
+      description      = "Cooperative multitasking and i/o for Python",
+      long_description = open("README.rst").read(),
+      packages         = ["flubber", "flubber.core", "flubber.ext", "flubber.green"],
+      platforms        = ["POSIX", "Microsoft Windows"],
+      classifiers      = [
+          "Development Status :: 4 - Beta",
+          "Intended Audience :: Developers",
+          "License :: OSI Approved :: MIT License",
+          "Operating System :: POSIX",
+          "Operating System :: Microsoft :: Windows",
+          "Programming Language :: Python",
+          "Programming Language :: Python :: 2",
+          "Programming Language :: Python :: 2.6",
+          "Programming Language :: Python :: 2.7",
+          #"Programming Language :: Python :: 3",
+          #"Programming Language :: Python :: 3.0",
+          #"Programming Language :: Python :: 3.1",
+          #"Programming Language :: Python :: 3.2"
+      ],
+     )
 
