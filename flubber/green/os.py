@@ -1,8 +1,9 @@
+
 os_orig = __import__("os")
 import errno
 socket = __import__("socket")
 
-from flubber import greenthread
+import flubber
 from flubber.hub import trampoline
 from flubber.io import GreenPipe
 from flubber.patcher import slurp_properties
@@ -76,8 +77,7 @@ def waitpid(pid, options):
         new_options = options | os_orig.WNOHANG
         while True:
             rpid, status = __original_waitpid__(pid, new_options)
-            if status >= 0:
+            if rpid and status >= 0:
                 return rpid, status
-            greenthread.sleep(0.01)
+            flubber.yield_()
 
-# TODO: open
