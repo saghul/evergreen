@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -
+#
+# This file is part of flubber. See the NOTICE for more information.
+
 """Implements the standard threading module, using greenthreads."""
 import greenlet
 from flubber import patcher

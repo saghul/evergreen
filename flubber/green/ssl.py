@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -
+#
+# This file is part of flubber. See the NOTICE for more information.
 
 __ssl = __import__('ssl')
 __patched__ = ['SSLSocket', 'wrap_socket', 'sslwrap_simple']

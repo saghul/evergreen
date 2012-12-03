@@ -1,3 +1,7 @@
+# -*- coding: utf-8 -
+#
+# This file is part of flubber. See the NOTICE for more information.
+
 __select = __import__('select')
 error = __select.error
 from flubber.greenthread import get_current

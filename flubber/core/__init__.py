@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -
+#
+# This file is part of flubber. See the NOTICE for more information.
 
 from flubber.core.task import Task, TaskExit, get_current
 from flubber.core.hub import Hub, get_hub

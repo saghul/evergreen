@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -
+#
+# This file is part of flubber. See the NOTICE for more information.
 
 from flubber.core._greenlet import get_current
 

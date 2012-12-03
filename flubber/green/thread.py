@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -
+#
+# This file is part of flubber. See the NOTICE for more information.
 
 """Implements the standard thread module, using greenthreads."""
 __thread = __import__('thread')
