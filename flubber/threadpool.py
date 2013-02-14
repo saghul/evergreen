@@ -11,7 +11,7 @@ from flubber.futures import Future
 class ThreadPool(object):
 
     def __init__(self, hub):
-        self._tpool = pyuv.ThreadPool(hub.loop)
+        self._loop = hub.loop
 
     def spawn(self, func, *args, **kwargs):
         f = functools.partial(func, *args, **kwargs)
@@ -21,6 +21,6 @@ class ThreadPool(object):
                 result.set_exception(error)
             else:
                 result.set_result(value)
-        self._tpool.queue_work(f, after)
+        self._loop.queue_work(f, after)
         return result
 
