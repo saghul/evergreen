@@ -33,7 +33,7 @@ def yield_():
     """
     hub = get_hub()
     current = get_current()
-    hub.next_tick(current.switch)
+    hub.call_soon(current.switch)
     hub.switch()
 
 

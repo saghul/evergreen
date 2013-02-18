@@ -89,7 +89,7 @@ class Semaphore(object):
         ignored"""
         self.__counter += 1
         if self.__waiters:
-            flubber.current.hub.next_tick(self._notify_waiters)
+            flubber.current.hub.call_soon(self._notify_waiters)
 
     def _notify_waiters(self):
         if self.__waiters and self.__counter > 0:

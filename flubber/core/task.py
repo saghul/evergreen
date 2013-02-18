@@ -15,10 +15,8 @@ TaskExit = GreenletExit
 
 class Task(greenlet):
 
-    def __init__(self, target=None, args=(), kwargs=None):
-        greenlet.__init__(self, run=self.__run, parent=flubber.current.hub.greenlet)
-        if kwargs is None:
-            kwargs = {}
+    def __init__(self, target=None, args=(), kwargs={}):
+        super(Task, self).__init__(parent=flubber.current.hub.greenlet)
         self._target = target
         self._args = args
         self._kwargs = kwargs
@@ -30,14 +28,11 @@ class Task(greenlet):
             raise RuntimeError('tasks can only be started once')
         self._started = True
         hub = flubber.current.hub
-        hub.next_tick(self.switch)
+        hub.call_soon(self.switch)
 
     def run_(self):
-        try:
-            if self._target:
-                self._target(*self._args, **self._kwargs)
-        finally:
-            del self._target, self._args, self._kwargs
+        if self._target:
+            self._target(*self._args, **self._kwargs)
 
     def join(self, timeout=None):
         """Wait for this Task to end. If a timeout is given, after the time expires the function
@@ -68,14 +63,15 @@ class Task(greenlet):
             return
         hub = flubber.current.hub
         current = flubber.current.task
-        hub.next_tick(current.switch)
+        hub.call_soon(current.switch)
         self.throw(*throw_args)
 
     # internal
 
-    def __run(self):
+    def run(self):
         try:
             self.run_()
         finally:
+            del self._target, self._args, self._kwargs
             self._exit_event.set()
 

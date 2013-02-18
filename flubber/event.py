@@ -21,7 +21,7 @@ class Event(object):
     def set(self):
         self._flag = True
         if self._waiters:
-            flubber.current.hub.next_tick(self._notify_waiters)
+            flubber.current.hub.call_soon(self._notify_waiters)
 
     def clear(self):
         self._flag = False
