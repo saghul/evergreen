@@ -10,9 +10,9 @@ import traceback
 from collections import deque
 
 from flubber import patcher
-from flubber.core._greenlet import greenlet, get_current, GreenletExit
 from flubber.core._socketpair import SocketPair
 from flubber.threadpool import ThreadPool
+from flubber._tasklet import tasklet, get_current, TaskletExit
 
 
 __all__ = ['get_hub', 'Hub']
@@ -63,7 +63,7 @@ class Hub(object):
         if getattr(_tls, 'hub', None) is not None:
             raise RuntimeError('cannot instantiate more than one Hub per thread')
         _tls.hub = self
-        self.greenlet = greenlet(self._run_loop)
+        self.tasklet = tasklet(self._run_loop)
         self.loop = pyuv.Loop()
         self.loop.excepthook = self.handle_error
         self.threadpool = ThreadPool(self)
@@ -184,11 +184,11 @@ class Hub(object):
         if switch_out is not None:
             switch_out()
         try:
-            if self.greenlet.parent is not current:
-                current.parent = self.greenlet
+            if self.tasklet.parent is not current:
+                current.parent = self.tasklet
         except ValueError:
-            pass  # gets raised if there is a greenlet parent cycle
-        return self.greenlet.switch()
+            pass  # gets raised if there is a tasklet parent cycle
+        return self.tasklet.switch()
 
     def switch_out(self):
         raise RuntimeError('Cannot switch to MAIN from MAIN')
@@ -196,11 +196,11 @@ class Hub(object):
     def join(self):
         # TODO: refactor / remove
         current = get_current()
-        if current is not self.greenlet.parent:
-            raise RuntimeError('run() can only be called from MAIN greenlet')
-        if self.greenlet.dead:
+        if current is not self.tasklet.parent:
+            raise RuntimeError('run() can only be called from MAIN tasklet')
+        if self.tasklet.dead:
             raise RuntimeError('hub has already ended')
-        self.greenlet.switch()
+        self.tasklet.switch()
 
     def destroy(self):
         global _tls
@@ -230,16 +230,16 @@ class Hub(object):
     # internal
 
     def handle_error(self, typ, value, tb):
-        if not issubclass(typ, (GreenletExit, SystemExit)):
+        if not issubclass(typ, (TaskletExit, SystemExit)):
             traceback.print_exception(typ, value, tb)
         if issubclass(typ, (KeyboardInterrupt, SystemExit, SystemError)):
             current = get_current()
-            if current is self.greenlet:
-                self.greenlet.parent.throw(typ, value)
+            if current is self.tasklet:
+                self.tasklet.parent.throw(typ, value)
             else:
                 # TODO: this will never be reached?!
                 self.call_soon(self.parent.throw, typ, value)
-        # TODO: what is I raise GreenletExit on a timer callback? What should happen?!
+        # TODO: what is I raise TaskletExit on a timer callback? What should happen?!
 
     def _run_loop(self):
         run_once = self._run_once

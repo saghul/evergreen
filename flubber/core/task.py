@@ -4,19 +4,19 @@
 
 import flubber
 
-from flubber.core._greenlet import greenlet, get_current, GreenletExit
 from flubber.event import Event
+from flubber._tasklet import tasklet, get_current, TaskletExit
 
 __all__ = ['get_current', 'Task', 'TaskExit']
 
 
-TaskExit = GreenletExit
+TaskExit = TaskletExit
 
 
-class Task(greenlet):
+class Task(tasklet):
 
     def __init__(self, target=None, args=(), kwargs={}):
-        super(Task, self).__init__(parent=flubber.current.hub.greenlet)
+        super(Task, self).__init__(parent=flubber.current.hub.tasklet)
         self._target = target
         self._args = args
         self._kwargs = kwargs
