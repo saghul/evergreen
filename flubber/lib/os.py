@@ -2,6 +2,8 @@
 #
 # This file is part of flubber. See the NOTICE for more information.
 
+#TODO: broken, fix
+
 os_orig = __import__("os")
 socket = __import__("socket")
 

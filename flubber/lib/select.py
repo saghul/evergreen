@@ -2,6 +2,8 @@
 #
 # This file is part of flubber. See the NOTICE for more information.
 
+#TODO: broken, fix
+
 __select = __import__('select')
 error = __select.error
 from flubber.greenthread import get_current

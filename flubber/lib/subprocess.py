@@ -2,6 +2,8 @@
 #
 # This file is part of flubber. See the NOTICE for more information.
 
+#TODO: broken, fix
+
 import array
 import errno
 import new
