@@ -4,23 +4,23 @@
 
 __version__ = '0.0.1.dev'
 
-from flubber import core
-from flubber import timeout
-from flubber import net
+from flubber.hub import *
+from flubber.tasks import *
 
-sleep = core.sleep
-yield_ = core.yield_
-spawn = core.spawn
-spawn_later = core.spawn_later
+__all__ = [hub.__all__ +
+           tasks.__all__ +
+           ['current', '__version__']]
 
-Hub = core.Hub
-Task = core.Task
-TaskExit = core.TaskExit
 
-Timeout = timeout.Timeout
+class _CurrentContext(object):
 
-connect = net.connect
-listen = net.listen
+    @property
+    def hub(self):
+        return get_hub()
 
-current = core.current_ctx
+    @property
+    def task(self):
+        return get_current()
+
+current = _CurrentContext()
 

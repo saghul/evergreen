@@ -10,8 +10,8 @@ import traceback
 from collections import deque
 
 from flubber import patcher
-from flubber.core._socketpair import SocketPair
 from flubber.threadpool import ThreadPool
+from flubber._socketpair import SocketPair
 from flubber._tasklet import tasklet, get_current, TaskletExit
 
 

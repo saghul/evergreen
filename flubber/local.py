@@ -2,7 +2,7 @@
 #
 # This file is part of flubber. See the NOTICE for more information.
 
-from flubber.core._tasklet import get_current
+from flubber._tasklet import get_current
 
 __all__ = ['local']
 
