@@ -2,14 +2,15 @@
 #
 # This file is part of flubber. See the NOTICE for more information.
 
-#TODO: broken, fix
+import flubber
+from flubber.event import Event
 
-__select = __import__('select')
-error = __select.error
-from flubber.greenthread import get_current
-from flubber.hub import get_hub
-
+__select    = __import__('select')
+__all__     = ['select', 'error']
 __patched__ = ['select']
+
+error = __select.error
+
 
 def get_fileno(obj):
     # The purpose of this function is to exactly replicate
@@ -28,55 +29,62 @@ def get_fileno(obj):
             raise TypeError("Expected int or long, got " + type(rv))
         return rv
 
+
+class SelectHelper(object):
+
+    def __init__(self):
+        self.hub = flubber.current.hub
+        self._read_fds = {}
+        self._write_fds = {}
+        self._event = Event()
+        self.rlist = []
+        self.wlist = []
+
+    def add_reader(self, fdobj):
+        fd = get_fileno(fdobj)
+        self._read_fds[fd] = fdobj
+        self.hub.add_reader(fd, self._on_read, fd)
+
+    def add_writer(self, fdobj):
+        fd = get_fileno(fdobj)
+        self._write_fds[fd] = fdobj
+        self.hub.add_writer(fd, self._on_write, fd)
+
+    def wait(self, timeout):
+        self._event.wait(timeout)
+
+    def close(self):
+        for fd in self._read_fds:
+            self.hub.remove_reader(fd)
+        for fd in self._write_fds:
+            self.hub.remove_writer(fd)
+
+    def _on_read(self, fd):
+        self.rlist.append(self._read_fds[fd])
+        self._event.set()
+
+    def _on_write(self, fd):
+        self.wlist.append(self._write_fds[fd])
+        self._event.set()
+
+
 def select(read_list, write_list, error_list, timeout=None):
-    # error checking like this is required by the stdlib unit tests
     if timeout is not None:
+        # error checking like this is required by the stdlib unit tests
         try:
             timeout = float(timeout)
         except ValueError:
             raise TypeError("Expected number for timeout")
-    hub = get_hub()
-    t = None
-    current = get_current()
-    ds = {}
-    for r in read_list:
-        ds[get_fileno(r)] = {'read' : r}
-    for w in write_list:
-        ds.setdefault(get_fileno(w), {})['write'] = w
-    for e in error_list:
-        ds.setdefault(get_fileno(e), {})['error'] = e
 
-    listeners = []
+    helper = SelectHelper()
+    for fdobj in read_list:
+        helper.add_reader(fdobj)
+    for fdobj in write_list:
+        helper.add_writer(fdobj)
 
-    def on_read(d):
-        original = ds[get_fileno(d)]['read']
-        current.switch(([original], [], []))
-
-    def on_write(d):
-        original = ds[get_fileno(d)]['write']
-        current.switch(([], [original], []))
-
-    def on_error(d, _err=None):
-        original = ds[get_fileno(d)]['error']
-        current.switch(([], [], [original]))
-
-    def on_timeout():
-        current.switch(([], [], []))
-
-    if timeout is not None:
-        t = hub.call_later(timeout, on_timeout)
     try:
-        for k, v in ds.iteritems():
-            if v.get('read'):
-                listeners.append(hub.add(hub.READ, k, on_read))
-            if v.get('write'):
-                listeners.append(hub.add(hub.WRITE, k, on_write))
-        try:
-            return hub.switch()
-        finally:
-            for l in listeners:
-                hub.remove(l)
+        helper.wait(timeout)
+        return helper.rlist, helper.wlist, []
     finally:
-        if t is not None:
-            t.cancel()
+        helper.close()
 
