@@ -68,6 +68,8 @@ class Hub(object):
         self.loop.excepthook = self.handle_error
         self.threadpool = ThreadPool(self)
 
+        self._started = False
+
         self._fd_map = dict()
         self._timers = set()
         self._ready = deque()
@@ -179,6 +181,8 @@ class Hub(object):
             return True
 
     def switch(self):
+        if not self._started:
+            raise RuntimeError('Hub was not started, run() needs to be called first')
         current = get_current()
         switch_out = getattr(current, 'switch_out', None)
         if switch_out is not None:
@@ -193,13 +197,15 @@ class Hub(object):
     def switch_out(self):
         raise RuntimeError('Cannot switch to MAIN from MAIN')
 
-    def join(self):
-        # TODO: refactor / remove
+    def run(self):
         current = get_current()
         if current is not self.tasklet.parent:
             raise RuntimeError('run() can only be called from MAIN tasklet')
         if self.tasklet.dead:
             raise RuntimeError('hub has already ended')
+        if self._started:
+            raise RuntimeError('hub was already started')
+        self._started = True
         self.tasklet.switch()
 
     def destroy(self):
