@@ -3,20 +3,21 @@
 # This file is part of flubber. See the NOTICE for more information.
 
 #TODO: broken, fix
-
-os_orig = __import__("os")
-socket = __import__("socket")
+from __future__ import absolute_import
 
 import errno
+import socket
+
 import flubber
 
 from flubber.io import IOWaiter, Pipe
 from flubber.patcher import slurp_properties
 
-__all__ = os_orig.__all__
+import os as __os__
+__all__ = __os__.__all__
 __patched__ = ['fdopen', 'read', 'write', 'wait', 'waitpid']
 
-slurp_properties(os_orig, globals(), ignore=__patched__, srckeys=dir(os_orig))
+slurp_properties(__os__, globals(), ignore=__patched__, srckeys=dir(__os__))
 
 
 def fdopen(fd, *args, **kw):
@@ -31,7 +32,7 @@ def fdopen(fd, *args, **kw):
         raise OSError(*e.args)
 
 
-__original_read__ = os_orig.read
+__original_read__ = __os__.read
 
 def read(fd, n):
     """read(fd, buffersize) -> string
@@ -51,7 +52,7 @@ def read(fd, n):
         io.wait_read()
 
 
-__original_write__ = os_orig.write
+__original_write__ = __os__.write
 
 def write(fd, st):
     """write(fd, string) -> byteswritten
@@ -78,17 +79,17 @@ def wait():
     return waitpid(0,0)
 
 
-__original_waitpid__ = os_orig.waitpid
+__original_waitpid__ = __os__.waitpid
 
 def waitpid(pid, options):
     """waitpid(...)
     waitpid(pid, options) -> (pid, status)
 
     Wait for completion of a given child process."""
-    if options & os_orig.WNOHANG != 0:
+    if options & __os__.WNOHANG != 0:
         return __original_waitpid__(pid, options)
     else:
-        new_options = options | os_orig.WNOHANG
+        new_options = options | __os__.WNOHANG
         while True:
             rpid, status = __original_waitpid__(pid, new_options)
             if rpid and status >= 0:

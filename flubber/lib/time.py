@@ -2,11 +2,13 @@
 #
 # This file is part of flubber. See the NOTICE for more information.
 
+from __future__ import absolute_import
+
 from flubber import sleep
 from flubber.patcher import slurp_properties
 
-__time = __import__('time')
+import time as __time__
 __patched__ = ['sleep']
 
-slurp_properties(__time, globals(), ignore=__patched__, srckeys=dir(__time))
+slurp_properties(__time__, globals(), ignore=__patched__, srckeys=dir(__time__))
 

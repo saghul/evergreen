@@ -3,6 +3,7 @@
 # This file is part of flubber. See the NOTICE for more information.
 
 #TODO: broken, fix
+from __future__ import absolute_import
 
 import array
 import errno
@@ -25,7 +26,7 @@ else:
     from errno import EAGAIN
 
 patcher.inject('subprocess', globals(), ('select', select))
-subprocess_orig = __import__("subprocess")
+import subprocess as __subprocess__
 
 
 class _SocketDuckForFd(object):
@@ -241,7 +242,7 @@ class Pipe(_fileobject):
 
 
 # This is the meat of this module, the green version of Popen.
-class Popen(subprocess_orig.Popen):
+class Popen(__subprocess__.Popen):
     """flubber-friendly version of subprocess.Popen"""
     # We do not believe that Windows pipes support non-blocking I/O. At least,
     # the Python file objects stored on our base-class object have no
@@ -249,10 +250,10 @@ class Popen(subprocess_orig.Popen):
     # Windows. As the sole purpose of
     # this __init__() override is to wrap the pipes for flubber-friendly
     # non-blocking I/O, don't even bother overriding it on Windows.
-    if not subprocess_orig.mswindows:
+    if not __subprocess__.mswindows:
         def __init__(self, args, bufsize=0, *argss, **kwds):
             # Forward the call to base-class constructor
-            subprocess_orig.Popen.__init__(self, args, 0, *argss, **kwds)
+            __subprocess__.Popen.__init__(self, args, 0, *argss, **kwds)
             # Now wrap the pipes, if any. This logic is loosely borrowed from
             # flubber.processes.Process.run() method.
             for attr in "stdin", "stdout", "stderr":
@@ -260,7 +261,7 @@ class Popen(subprocess_orig.Popen):
                 if pipe is not None and not type(pipe) is Pipe:
                     wrapped_pipe = Pipe(pipe, pipe.mode, bufsize)
                     setattr(self, attr, wrapped_pipe)
-        __init__.__doc__ = subprocess_orig.Popen.__init__.__doc__
+        __init__.__doc__ = __subprocess__.Popen.__init__.__doc__
 
     def wait(self, check_interval=0.01):
         # Instead of a blocking OS call, this version of wait() uses logic
@@ -278,24 +279,24 @@ class Popen(subprocess_orig.Popen):
                 return -1
             else:
                 raise
-    wait.__doc__ = subprocess_orig.Popen.wait.__doc__
+    wait.__doc__ = __subprocess__.Popen.wait.__doc__
 
-    if not subprocess_orig.mswindows:
+    if not __subprocess__.mswindows:
         # don't want to rewrite the original _communicate() method, we
         # just want a version that uses flubber.lib.select.select()
         # instead of select.select().
         try:
-            _communicate = new.function(subprocess_orig.Popen._communicate.im_func.func_code,
+            _communicate = new.function(__subprocess__.Popen._communicate.im_func.func_code,
                                         globals())
         except AttributeError:
             # 2.4 only has communicate
-            _communicate = new.function(subprocess_orig.Popen.communicate.im_func.func_code,
+            _communicate = new.function(__subprocess__.Popen.communicate.im_func.func_code,
                                         globals())
             def communicate(self, input=None):
                 return self._communicate(input)
 
 # Borrow subprocess.call() and check_call(), but patch them so they reference
 # OUR Popen class rather than subprocess.Popen.
-call = new.function(subprocess_orig.call.func_code, globals())
-check_call = new.function(subprocess_orig.check_call.func_code, globals())
+call = new.function(__subprocess__.call.func_code, globals())
+check_call = new.function(__subprocess__.check_call.func_code, globals())
 

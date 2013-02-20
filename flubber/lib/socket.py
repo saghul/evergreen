@@ -35,33 +35,32 @@ else:
     from errno import EAGAIN
 from errno import EBADF
 
-
-__socket    = __import__('socket')
-__all__     = __socket.__all__
+import socket as __socket__
+__all__     = __socket__.__all__
 __patched__ = ['fromfd', 'socketpair', 'ssl', 'socket', 'SocketType',
                'gethostbyname', 'gethostbyname_ex', 'getnameinfo', 'getaddrinfo',
                'create_connection',]
 
-slurp_properties(__socket, globals(), ignore=__patched__, srckeys=dir(__socket))
+slurp_properties(__socket__, globals(), ignore=__patched__, srckeys=dir(__socket__))
 
 _realsocket = _socket.socket
-_fileobject = __socket._fileobject
+_fileobject = __socket__._fileobject
 
 
 try:
-    _GLOBAL_DEFAULT_TIMEOUT = __socket._GLOBAL_DEFAULT_TIMEOUT
+    _GLOBAL_DEFAULT_TIMEOUT = __socket__._GLOBAL_DEFAULT_TIMEOUT
 except AttributeError:
     _GLOBAL_DEFAULT_TIMEOUT = object()
 
 try:
-    __original_fromfd__ = __socket.fromfd
+    __original_fromfd__ = __socket__.fromfd
     def fromfd(*args):
         return socket(__original_fromfd__(*args))
 except AttributeError:
     pass
 
 try:
-    __original_socketpair__ = __socket.socketpair
+    __original_socketpair__ = __socket__.socketpair
     def socketpair(*args):
         one, two = __original_socketpair__(*args)
         return socket(one), socket(two)
@@ -70,8 +69,8 @@ except AttributeError:
 
 try:
     from flubber.lib import ssl as ssl_module
-    sslerror = __socket.sslerror
-    __socket.ssl
+    sslerror = __socket__.sslerror
+    __socket__.ssl
     def ssl(sock, certificate=None, private_key=None):
         warnings.warn("socket.ssl() is deprecated.  Use ssl.wrap_socket() instead.", DeprecationWarning, stacklevel=2)
         return ssl_module.sslwrap_simple(sock, private_key, certificate)
@@ -422,19 +421,19 @@ def _run_in_threadpool(func, *args, **kw):
 
 
 def gethostbyname(*args, **kw):
-    return _run_in_threadpool(__socket.gethostbyname, *args, **kw).result()
+    return _run_in_threadpool(__socket__.gethostbyname, *args, **kw).result()
 
 
 def gethostbyname_ex(*args, **kw):
-    return _run_in_threadpool(__socket.gethostbyname_ex, *args, **kw).result()
+    return _run_in_threadpool(__socket__.gethostbyname_ex, *args, **kw).result()
 
 
 def getnameinfo(*args, **kw):
-    return _run_in_threadpool(__socket.getnameinfo, *args, **kw).result()
+    return _run_in_threadpool(__socket__.getnameinfo, *args, **kw).result()
 
 
 def getaddrinfo(*args, **kw):
-    return _run_in_threadpool(__socket.getaddrinfo, *args, **kw).result()
+    return _run_in_threadpool(__socket__.getaddrinfo, *args, **kw).result()
 
 
 def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT, source_address=None):

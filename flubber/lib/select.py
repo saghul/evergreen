@@ -2,14 +2,16 @@
 #
 # This file is part of flubber. See the NOTICE for more information.
 
+from __future__ import absolute_import
+
 import flubber
 from flubber.event import Event
 
-__select    = __import__('select')
+import select as __select__
 __all__     = ['select', 'error']
 __patched__ = ['select']
 
-error = __select.error
+error = __select__.error
 
 
 def get_fileno(obj):

@@ -2,6 +2,8 @@
 #
 # This file is part of flubber. See the NOTICE for more information.
 
+from __future__ import absolute_import
+
 import errno
 import sys
 
@@ -9,13 +11,12 @@ from flubber.socket import socket, _fileobject
 from flubber.socket import error as socket_error, timeout as socket_timeout
 from flubber.patcher import slurp_properties
 
-
-__ssl = __import__('ssl')
+import ssl as __ssl__
 __patched__ = ['SSLSocket', 'wrap_socket', 'sslwrap_simple']
 
-slurp_properties(__ssl, globals(), ignore=__patched__, srckeys=dir(__ssl))
+slurp_properties(__ssl__, globals(), ignore=__patched__, srckeys=dir(__ssl__))
 
-_ssl = __ssl._ssl
+_ssl = __ssl__._ssl
 
 
 if sys.version_info >= (2, 7):
@@ -324,7 +325,7 @@ def wrap_socket(sock, *a, **kw):
     return SSLSocket(sock, *a, **kw)
 
 
-if hasattr(__ssl, 'sslwrap_simple'):
+if hasattr(__ssl__, 'sslwrap_simple'):
     def sslwrap_simple(sock, keyfile=None, certfile=None):
         """A replacement for the old socket.ssl function.  Designed
         for compability with Python 2.5 and earlier.  Will disappear in

@@ -2,12 +2,12 @@
 #
 # This file is part of flubber. See the NOTICE for more information.
 
-"""A multi-producer, multi-consumer queue."""
+from __future__ import absolute_import
 
 import heapq
 
 from collections import deque
-from time import time as _time
+from time import time as time
 
 import six
 
@@ -16,12 +16,12 @@ from flubber.lock import Semaphore, Condition
 __all__ = ['Empty', 'Full', 'Queue', 'PriorityQueue', 'LifoQueue']
 
 if six.PY3:
-    __queue = __import__('queue')
+    import queue as __queue__
 else:
-    __queue = __import__('Queue')
+    import Queue as __queue__
 
-Empty = __queue.Empty
-Full = __queue.Full
+Empty = __queue__.Empty
+Full = __queue__.Full
 
 
 class Queue(object):
@@ -150,9 +150,9 @@ class Queue(object):
                 elif timeout < 0:
                     raise ValueError("'timeout' must be a positive number")
                 else:
-                    endtime = _time() + timeout
+                    endtime = time() + timeout
                     while self._qsize() >= self.maxsize:
-                        remaining = endtime - _time()
+                        remaining = endtime - time()
                         if remaining <= 0.0:
                             raise Full
                         self.not_full.wait(remaining)
@@ -192,9 +192,9 @@ class Queue(object):
             elif timeout < 0:
                 raise ValueError("'timeout' must be a positive number")
             else:
-                endtime = _time() + timeout
+                endtime = time() + timeout
                 while not self._qsize():
-                    remaining = endtime - _time()
+                    remaining = endtime - time()
                     if remaining <= 0.0:
                         raise Empty
                     self.not_empty.wait(remaining)
