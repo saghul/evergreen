@@ -42,6 +42,7 @@ __patched__ = ['fromfd', 'socketpair', 'ssl', 'socket', 'SocketType',
                'create_connection',]
 
 slurp_properties(__socket__, globals(), ignore=__patched__, srckeys=dir(__socket__))
+del slurp_properties
 
 _realsocket = _socket.socket
 _fileobject = __socket__._fileobject

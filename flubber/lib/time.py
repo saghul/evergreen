@@ -11,4 +11,5 @@ import time as __time__
 __patched__ = ['sleep']
 
 slurp_properties(__time__, globals(), ignore=__patched__, srckeys=dir(__time__))
+del slurp_properties
 

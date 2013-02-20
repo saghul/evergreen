@@ -18,6 +18,7 @@ __all__ = __os__.__all__
 __patched__ = ['fdopen', 'read', 'write', 'wait', 'waitpid']
 
 slurp_properties(__os__, globals(), ignore=__patched__, srckeys=dir(__os__))
+del slurp_properties
 
 
 def fdopen(fd, *args, **kw):
