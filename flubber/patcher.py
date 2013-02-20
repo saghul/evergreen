@@ -5,9 +5,10 @@
 import sys
 import imp
 
-__all__ = ['inject', 'import_patched', 'monkey_patch', 'is_monkey_patched']
+__all__ = ['inject', 'import_patched', 'patch', 'is_patched']
 
 __exclude = set(('__builtins__', '__file__', '__name__'))
+
 
 class SysModulesSaver(object):
     """Class that captures some subset of the current state of
@@ -63,12 +64,10 @@ def inject(module_name, new_globals, *additional_modules):
 
     if not additional_modules:
         # supply some defaults
-        additional_modules = (
-            _green_os_modules() +
-            _green_select_modules() +
-            _green_socket_modules() +
-            _green_thread_modules() +
-            _green_time_modules())
+        additional_modules = (_os_modules() +
+                              _select_modules() +
+                              _socket_modules() +
+                              _time_modules())
 
     # after this we are gonna screw with sys.modules, so capture the
     # state of all the modules we're going to mess with, and lock
@@ -107,10 +106,9 @@ def import_patched(module_name, *additional_modules, **kw_additional_modules):
 
     The only required argument is the name of the module to be imported.
     """
-    return inject(
-        module_name,
-        None,
-        *additional_modules + tuple(kw_additional_modules.items()))
+    return inject(module_name,
+                  None,
+                  *additional_modules + tuple(kw_additional_modules.items()))
 
 
 def patch_function(func, *additional_modules):
@@ -121,12 +119,10 @@ def patch_function(func, *additional_modules):
     way of getting around."""
     if not additional_modules:
         # supply some defaults
-        additional_modules = (
-            _green_os_modules() +
-            _green_select_modules() +
-            _green_socket_modules() +
-            _green_thread_modules() +
-            _green_time_modules())
+        additional_modules = (_os_modules() +
+                              _select_modules() +
+                              _socket_modules() +
+                              _time_modules())
 
     def patched(*args, **kw):
         saver = SysModulesSaver()
@@ -159,7 +155,7 @@ def _original_patch_function(func, *module_names):
 
 def original(modname):
     """ This returns an unpatched version of a module; this is useful for
-    flubber itself (i.e. tpool)."""
+    flubber itself."""
     # note that it's not necessary to temporarily install unpatched
     # versions of all patchable modules during the import of the
     # module; this is because none of them import each other, except
@@ -172,14 +168,6 @@ def original(modname):
     # dict; be sure to restore whatever module had that name already
     saver = SysModulesSaver((modname,))
     sys.modules.pop(modname, None)
-    # some rudimentary dependency checking -- fortunately the modules
-    # we're working on don't have many dependencies so we can just do
-    # some special-casing here
-    deps = {'threading':'thread', 'Queue':'threading'}
-    if modname in deps:
-        dependency = deps[modname]
-        saver.save(dependency)
-        sys.modules[dependency] = original(dependency)
     try:
         real_mod = __import__(modname, {}, {}, modname.split('.')[:-1])
         # save a reference to the unpatched module so it doesn't get lost
@@ -189,8 +177,10 @@ def original(modname):
 
     return sys.modules[original_name]
 
+
 already_patched = {}
-def monkey_patch(**on):
+
+def patch(**on):
     """Globally patches certain system modules to be 'cooperaive'.
 
     The keyword arguments afford some control over which modules are patched.
@@ -198,17 +188,16 @@ def monkey_patch(**on):
     If keywords are set to True, only the specified modules are patched.  E.g.,
     ``monkey_patch(socket=True, select=True)`` patches only the select and
     socket modules.  Most arguments patch the single module of the same name
-    (os, time, select).  The exceptions are socket, which also patches the ssl
-    module if present; and thread, which patches thread, threading, and Queue.
+    (os, time, select).  The exception is socket, which also patches the ssl
+    module if present.
 
     It's safe to call monkey_patch multiple times.
     """
-    accepted_args = set(('os', 'select', 'socket', 'thread', 'time'))
+    accepted_args = set(('os', 'select', 'socket', 'time'))
     default_on = on.pop("all",None)
     for k in on.iterkeys():
         if k not in accepted_args:
-            raise TypeError("monkey_patch() got an unexpected "\
-                                "keyword argument %r" % k)
+            raise TypeError("patch() got an unexpected keyword argument %r" % k)
     if default_on is None:
         default_on = not (True in on.values())
     for modname in accepted_args:
@@ -216,19 +205,16 @@ def monkey_patch(**on):
 
     modules_to_patch = []
     if on['os'] and not already_patched.get('os'):
-        modules_to_patch += _green_os_modules()
+        modules_to_patch += _os_modules()
         already_patched['os'] = True
     if on['select'] and not already_patched.get('select'):
-        modules_to_patch += _green_select_modules()
+        modules_to_patch += _select_modules()
         already_patched['select'] = True
     if on['socket'] and not already_patched.get('socket'):
-        modules_to_patch += _green_socket_modules()
+        modules_to_patch += _socket_modules()
         already_patched['socket'] = True
-    if on['thread'] and not already_patched.get('thread'):
-        modules_to_patch += _green_thread_modules()
-        already_patched['thread'] = True
     if on['time'] and not already_patched.get('time'):
-        modules_to_patch += _green_time_modules()
+        modules_to_patch += _time_modules()
         already_patched['time'] = True
 
     imp.acquire_lock()
@@ -244,7 +230,8 @@ def monkey_patch(**on):
     finally:
         imp.release_lock()
 
-def is_monkey_patched(module):
+
+def is_patched(module):
     """Returns True if the given module is monkeypatched currently, False if
     not.  *module* can be either the module itself or its name.
 
@@ -252,18 +239,18 @@ def is_monkey_patched(module):
     module some other way than with the import keyword (including
     import_patched), this might not be correct about that particular
     module."""
-    return module in already_patched or \
-           getattr(module, '__name__', None) in already_patched
+    return module in already_patched or getattr(module, '__name__', None) in already_patched
 
-def _green_os_modules():
+
+def _os_modules():
     from flubber.lib import os
     return [('os', os)]
 
-def _green_select_modules():
+def _select_modules():
     from flubber.lib import select
     return [('select', select)]
 
-def _green_socket_modules():
+def _socket_modules():
     from flubber.lib import socket
     try:
         from flubber.lib import ssl
@@ -271,13 +258,7 @@ def _green_socket_modules():
     except ImportError:
         return [('socket', socket)]
 
-def _green_thread_modules():
-    from flubber.lib import Queue
-    from flubber.lib import thread
-    from flubber.lib import threading
-    return [('Queue', Queue), ('thread', thread), ('threading', threading)]
-
-def _green_time_modules():
+def _time_modules():
     from flubber.lib import time
     return [('time', time)]
 
@@ -294,8 +275,6 @@ def slurp_properties(source, destination, ignore=[], srckeys=None):
         srckeys = source.__all__
     destination.update(dict([(name, getattr(source, name))
                               for name in srckeys
-                              if not (
-                                name.startswith('__') or
-                                name in ignore)
+                                if not (name.startswith('__') or name in ignore)
                             ]))
 
