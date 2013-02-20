@@ -105,38 +105,46 @@ class IOWaiter(object):
 
     def __init__(self, fd):
         self.fd = fd
-        self._closed = False
+        self._read_closed = False
+        self._write_closed = False
         self._read_event = Event()
         self._write_event = Event()
 
     def wait_read(self, timeout=None, timeout_exc=None):
-        if self._closed:
+        if self._read_closed:
             raise cancel_wait_ex
         self._read_event.clear()
         hub = flubber.current.hub
         handler = hub.add_reader(self.fd, self._read_event.set)
         try:
             self._wait(self._read_event, timeout, timeout_exc)
+            if self._read_closed:
+                raise cancel_wait_ex
         finally:
             handler.cancel()
             hub.remove_reader(self.fd)
 
     def wait_write(self, timeout=None, timeout_exc=None):
-        if self._closed:
+        if self._write_closed:
             raise cancel_wait_ex
         self._write_event.clear()
         hub = flubber.current.hub
         handler = hub.add_writer(self.fd, self._write_event.set)
         try:
             self._wait(self._write_event, timeout, timeout_exc)
+            if self._write_closed:
+                raise cancel_wait_ex
         finally:
             handler.cancel()
             hub.remove_writer(self.fd)
 
-    def close(self):
-        self._closed = True
-        self._read_event.set()
-        self._write_event.set()
+    def close(self, read=True, write=True):
+        if read:
+            self._read_closed = True
+            self._read_event.set()
+        if write:
+            self._write_closed = True
+            self._write_event.set()
 
     def _wait(self, event, timeout, timeout_exc):
         with Timeout(timeout, timeout_exc) as t:
@@ -145,8 +153,6 @@ class IOWaiter(object):
             except Timeout as e:
                 if e is not t:
                     raise
-        if self._closed:
-            raise cancel_wait_ex
 
     def __repr__(self):
         return '<%s fd=%d>' % (self.__class__.__name__, self.fd)
@@ -398,7 +404,12 @@ class socket(object):
         return self.timeout
 
     def shutdown(self, how):
-        # TODO: close the io waiter?
+        if how == 0:  # SHUT_RD
+            self._io.close(read=True, write=False)
+        elif how == 1:  # SHUT_WR
+            self._io.close(read=False, write=True)
+        else:
+            self._io.close()
         self._sock.shutdown(how)
 
     family = property(lambda self: self._sock.family, doc="the socket family")
