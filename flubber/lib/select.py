@@ -36,21 +36,21 @@ class SelectHelper(object):
 
     def __init__(self):
         self.hub = flubber.current.hub
-        self._read_fds = {}
-        self._write_fds = {}
+        self._read_fds = []
+        self._write_fds = []
         self._event = Event()
         self.rlist = []
         self.wlist = []
 
     def add_reader(self, fdobj):
         fd = get_fileno(fdobj)
-        self._read_fds[fd] = fdobj
-        self.hub.add_reader(fd, self._on_read, fd)
+        self._read_fds.append(fd)
+        self.hub.add_reader(fd, self._on_read, fdobj)
 
     def add_writer(self, fdobj):
         fd = get_fileno(fdobj)
-        self._write_fds[fd] = fdobj
-        self.hub.add_writer(fd, self._on_write, fd)
+        self._write_fds.append(fd)
+        self.hub.add_writer(fd, self._on_write, fdobj)
 
     def wait(self, timeout):
         self._event.wait(timeout)
@@ -61,12 +61,12 @@ class SelectHelper(object):
         for fd in self._write_fds:
             self.hub.remove_writer(fd)
 
-    def _on_read(self, fd):
-        self.rlist.append(self._read_fds[fd])
+    def _on_read(self, fdobj):
+        self.rlist.append(fdobj)
         self._event.set()
 
-    def _on_write(self, fd):
-        self.wlist.append(self._write_fds[fd])
+    def _on_write(self, fdobj):
+        self.wlist.append(fdobj)
         self._event.set()
 
 
