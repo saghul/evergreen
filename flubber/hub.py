@@ -65,7 +65,7 @@ class Hub(object):
         _tls.hub = self
         self.tasklet = tasklet(self._run_loop)
         self.loop = pyuv.Loop()
-        self.loop.excepthook = self.handle_error
+        self.loop.excepthook = self._handle_error
         self.threadpool = ThreadPool(self)
 
         self._started = False
@@ -235,17 +235,13 @@ class Hub(object):
 
     # internal
 
-    def handle_error(self, typ, value, tb):
+    def _handle_error(self, typ, value, tb):
         if not issubclass(typ, (TaskletExit, SystemExit)):
             traceback.print_exception(typ, value, tb)
         if issubclass(typ, (KeyboardInterrupt, SystemExit, SystemError)):
             current = get_current()
-            if current is self.tasklet:
-                self.tasklet.parent.throw(typ, value)
-            else:
-                # TODO: this will never be reached?!
-                self.call_soon(self.parent.throw, typ, value)
-        # TODO: what is I raise TaskletExit on a timer callback? What should happen?!
+            assert current is self.tasklet
+            self.tasklet.parent.throw(typ, value)
 
     def _run_loop(self):
         run_once = self._run_once
