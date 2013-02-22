@@ -63,9 +63,9 @@ class Hub(object):
         if getattr(_tls, 'hub', None) is not None:
             raise RuntimeError('cannot instantiate more than one Hub per thread')
         _tls.hub = self
+        self._loop = pyuv.Loop()
+        self._loop.excepthook = self._handle_error
         self.tasklet = tasklet(self._run_loop)
-        self.loop = pyuv.Loop()
-        self.loop.excepthook = self._handle_error
         self.threadpool = ThreadPool(self)
 
         self._started = False
@@ -74,10 +74,10 @@ class Hub(object):
         self._timers = set()
         self._ready = deque()
 
-        self._waker = pyuv.Async(self.loop, lambda x: None)
+        self._waker = pyuv.Async(self._loop, lambda x: None)
         self._waker.unref()
 
-        self._ready_processor = pyuv.Check(self.loop)
+        self._ready_processor = pyuv.Check(self._loop)
         self._ready_processor.start(self._process_ready)
 
         self._install_signal_checker()
@@ -96,7 +96,7 @@ class Hub(object):
         if delay <= 0:
             return self.call_soon(callback, *args, **kw)
         handler = Handler(callback, args, kw)
-        timer = pyuv.Timer(self.loop)
+        timer = pyuv.Timer(self._loop)
         timer.handler = handler
         timer.start(self._timer_cb, delay, 0)
         self._timers.add(timer)
@@ -106,7 +106,7 @@ class Hub(object):
         if interval <= 0:
             raise ValueError('invalid interval specified: {}'.format(interval))
         handler = Handler(callback, args, kw)
-        timer = pyuv.Timer(self.loop)
+        timer = pyuv.Timer(self._loop)
         timer.handler = handler
         timer.start(self._timer_cb, interval, interval)
         self._timers.add(timer)
@@ -222,8 +222,8 @@ class Hub(object):
         self._uninstall_signal_checker()
 
         self._cleanup_loop()
-        self.loop.excepthook = None
-        self.loop = None
+        self._loop.excepthook = None
+        self._loop = None
         self.threadpool = None
 
         self._waker = None
@@ -263,18 +263,18 @@ class Hub(object):
             self._ready_processor.unref()
             mode = pyuv.UV_RUN_ONCE
 
-        return self.loop.run(mode)
+        return self._loop.run(mode)
 
     def _cleanup_loop(self):
         def cb(handle):
             if not handle.closed:
                 handle.close()
-        self.loop.walk(cb)
+        self._loop.walk(cb)
         # All handles are now closed, run will not block
-        self.loop.run(pyuv.UV_RUN_NOWAIT)
+        self._loop.run(pyuv.UV_RUN_NOWAIT)
 
     def _create_poll_handle(self, fd):
-        poll_h = pyuv.Poll(self.loop, fd)
+        poll_h = pyuv.Poll(self._loop, fd)
         poll_h.pevents = 0
         poll_h.read_handler = None
         poll_h.write_handler = None
@@ -359,7 +359,7 @@ class Hub(object):
                     self._socketpair.close()
                     self._socketpair = None
                 else:
-                    self._signal_checker = pyuv.util.SignalChecker(self.loop, self._socketpair.reader_fileno())
+                    self._signal_checker = pyuv.util.SignalChecker(self._loop, self._socketpair.reader_fileno())
                     self._signal_checker.start()
                     self._signal_checker.unref()
             except ValueError:

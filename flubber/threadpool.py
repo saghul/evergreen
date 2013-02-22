@@ -44,7 +44,7 @@ class _WorkFuture(Future):
 class ThreadPool(object):
 
     def __init__(self, hub):
-        self._loop = hub.loop
+        self._loop = hub._loop
 
     def spawn(self, func, *args, **kwargs):
         result = _WorkFuture()
