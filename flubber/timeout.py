@@ -32,11 +32,14 @@ class Timeout(BaseException):
         assert not self.pending, '%r is already started; to restart it, cancel it first' % self
         loop = flubber.current.loop
         current = flubber.current.task
-        if self.seconds is None: # "fake" timeout (never expires)
+        if self.seconds is None:
+            # "fake" timeout (never expires)
             self._timer = None
-        elif self.exception is None or isinstance(self.exception, bool): # timeout that raises self
+        elif self.exception is None or isinstance(self.exception, bool):
+            # timeout that raises self
             self._timer = loop.call_later(self.seconds, current.throw, self)
-        else: # regular timeout with user-provided exception
+        else:
+            # regular timeout with user-provided exception
             self._timer = loop.call_later(self.seconds, current.throw, self.exception)
 
     @property
