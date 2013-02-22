@@ -43,8 +43,8 @@ class _WorkFuture(Future):
 
 class ThreadPool(object):
 
-    def __init__(self, hub):
-        self._loop = hub._loop
+    def __init__(self, loop):
+        self.loop = loop
 
     def spawn(self, func, *args, **kwargs):
         result = _WorkFuture()
@@ -57,7 +57,7 @@ class ThreadPool(object):
                 result.set_exception(work.exc)
             else:
                 result.set_result(work.result)
-        req = self._loop.queue_work(work, after)
+        req = self.loop._loop.queue_work(work, after)
         result.work_request = req
         return result
 

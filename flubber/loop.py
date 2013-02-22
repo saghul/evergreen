@@ -15,20 +15,20 @@ from flubber._socketpair import SocketPair
 from flubber._tasklet import tasklet, get_current, TaskletExit
 
 
-__all__ = ['get_hub', 'Hub']
+__all__ = ['get_loop', 'EventLoop']
 
 
 threading = patcher.original('threading')
 _tls = threading.local()
 
 
-def get_hub():
-    """Get the current event hub singleton object.
+def get_loop():
+    """Get the current event loop singleton object.
     """
     try:
-        return _tls.hub
+        return _tls.loop
     except AttributeError:
-        raise RuntimeError('there is no hub created in the current thread')
+        raise RuntimeError('there is no event loop created in the current thread')
 
 
 class Handler(object):
@@ -56,13 +56,13 @@ class Handler(object):
         return res
 
 
-class Hub(object):
+class EventLoop(object):
 
     def __init__(self):
         global _tls
-        if getattr(_tls, 'hub', None) is not None:
-            raise RuntimeError('cannot instantiate more than one Hub per thread')
-        _tls.hub = self
+        if getattr(_tls, 'loop', None) is not None:
+            raise RuntimeError('cannot instantiate more than one event loop per thread')
+        _tls.loop = self
         self._loop = pyuv.Loop()
         self._loop.excepthook = self._handle_error
         self.tasklet = tasklet(self._run_loop)
@@ -182,7 +182,7 @@ class Hub(object):
 
     def switch(self):
         if not self._started:
-            raise RuntimeError('Hub was not started, run() needs to be called first')
+            raise RuntimeError('event loop was not started, run() needs to be called first')
         current = get_current()
         switch_out = getattr(current, 'switch_out', None)
         if switch_out is not None:
@@ -202,22 +202,22 @@ class Hub(object):
         if current is not self.tasklet.parent:
             raise RuntimeError('run() can only be called from MAIN tasklet')
         if self.tasklet.dead:
-            raise RuntimeError('hub has already ended')
+            raise RuntimeError('event loop has already ended')
         if self._started:
-            raise RuntimeError('hub was already started')
+            raise RuntimeError('event loop was already started')
         self._started = True
         self.tasklet.switch()
 
     def destroy(self):
         global _tls
         try:
-            hub = _tls.hub
+            loop = _tls.loop
         except AttributeError:
-            raise RuntimeError('hub is already destroyed')
+            raise RuntimeError('event loop is already destroyed')
         else:
-            if hub is not self:
-                raise RuntimeError('destroy() can only be called from the same thread were the hub was created')
-            del _tls.hub, hub
+            if loop is not self:
+                raise RuntimeError('destroy() can only be called from the same thread were the event loop was created')
+            del _tls.loop, loop
 
         self._uninstall_signal_checker()
 

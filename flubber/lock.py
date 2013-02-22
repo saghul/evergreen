@@ -68,9 +68,10 @@ class Semaphore(object):
             self.__waiters.add(current)
             timer = Timeout(timeout)
             timer.start()
+            loop = flubber.current.loop
             try:
                 while self.__counter <= 0:
-                    flubber.current.hub.switch()
+                    loop.switch()
             except Timeout, e:
                 if e is timer:
                     return False
@@ -89,7 +90,7 @@ class Semaphore(object):
         ignored"""
         self.__counter += 1
         if self.__waiters:
-            flubber.current.hub.call_soon(self._notify_waiters)
+            flubber.current.loop.call_soon(self._notify_waiters)
 
     def _notify_waiters(self):
         if self.__waiters and self.__counter > 0:

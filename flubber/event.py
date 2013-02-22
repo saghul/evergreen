@@ -21,7 +21,7 @@ class Event(object):
     def set(self):
         self._flag = True
         if self._waiters:
-            flubber.current.hub.call_soon(self._notify_waiters)
+            flubber.current.loop.call_soon(self._notify_waiters)
 
     def clear(self):
         self._flag = False
@@ -30,13 +30,13 @@ class Event(object):
         if self._flag:
             return True
         current = flubber.current.task
-        hub = flubber.current.hub
+        loop = flubber.current.loop
         self._waiters.add(current)
         timer = Timeout(timeout)
         timer.start()
         try:
             try:
-                hub.switch()
+                loop.switch()
             except Timeout as e:
                 if e is not timer:
                     raise

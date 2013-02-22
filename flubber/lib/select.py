@@ -35,7 +35,7 @@ def get_fileno(obj):
 class SelectHelper(object):
 
     def __init__(self):
-        self.hub = flubber.current.hub
+        self.loop = flubber.current.loop
         self._read_fds = []
         self._write_fds = []
         self._event = Event()
@@ -45,21 +45,21 @@ class SelectHelper(object):
     def add_reader(self, fdobj):
         fd = get_fileno(fdobj)
         self._read_fds.append(fd)
-        self.hub.add_reader(fd, self._on_read, fdobj)
+        self.loop.add_reader(fd, self._on_read, fdobj)
 
     def add_writer(self, fdobj):
         fd = get_fileno(fdobj)
         self._write_fds.append(fd)
-        self.hub.add_writer(fd, self._on_write, fdobj)
+        self.loop.add_writer(fd, self._on_write, fdobj)
 
     def wait(self, timeout):
         self._event.wait(timeout)
 
     def close(self):
         for fd in self._read_fds:
-            self.hub.remove_reader(fd)
+            self.loop.remove_reader(fd)
         for fd in self._write_fds:
-            self.hub.remove_writer(fd)
+            self.loop.remove_writer(fd)
 
     def _on_read(self, fdobj):
         self.rlist.append(fdobj)

@@ -114,29 +114,29 @@ class IOWaiter(object):
         if self._read_closed:
             raise cancel_wait_ex
         self._read_event.clear()
-        hub = flubber.current.hub
-        handler = hub.add_reader(self.fd, self._read_event.set)
+        loop = flubber.current.loop
+        handler = loop.add_reader(self.fd, self._read_event.set)
         try:
             self._wait(self._read_event, timeout, timeout_exc)
             if self._read_closed:
                 raise cancel_wait_ex
         finally:
             handler.cancel()
-            hub.remove_reader(self.fd)
+            loop.remove_reader(self.fd)
 
     def wait_write(self, timeout=None, timeout_exc=None):
         if self._write_closed:
             raise cancel_wait_ex
         self._write_event.clear()
-        hub = flubber.current.hub
-        handler = hub.add_writer(self.fd, self._write_event.set)
+        loop = flubber.current.loop
+        handler = loop.add_writer(self.fd, self._write_event.set)
         try:
             self._wait(self._write_event, timeout, timeout_exc)
             if self._write_closed:
                 raise cancel_wait_ex
         finally:
             handler.cancel()
-            hub.remove_writer(self.fd)
+            loop.remove_writer(self.fd)
 
     def close(self, read=True, write=True):
         if read:
@@ -234,8 +234,8 @@ class socket(object):
             return self._sock.connect(address)
         sock = self._sock
         if isinstance(address, tuple):
-            hub = flubber.current.hub
-            r = hub.threadpool.spawn(getaddrinfo, address[0], address[1], sock.family, sock.type, sock.proto).result()
+            loop = flubber.current.loop
+            r = loop.threadpool.spawn(getaddrinfo, address[0], address[1], sock.family, sock.type, sock.proto).result()
             address = r[0][-1]
         timer = Timeout(self.timeout, timeout('timed out'))
         timer.start()
@@ -428,8 +428,8 @@ SocketType = socket
 
 
 def _run_in_threadpool(func, *args, **kw):
-    hub = flubber.current.hub
-    return hub.threadpool.spawn(func, *args, **kw)
+    loop = flubber.current.loop
+    return loop.threadpool.spawn(func, *args, **kw)
 
 
 def gethostbyname(*args, **kw):

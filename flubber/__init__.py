@@ -4,10 +4,10 @@
 
 __version__ = '0.0.1.dev'
 
-from flubber.hub import *
+from flubber.loop import *
 from flubber.tasks import *
 
-__all__ = [hub.__all__ +
+__all__ = [loop.__all__ +
            tasks.__all__ +
            ['current', '__version__']]
 
@@ -15,8 +15,8 @@ __all__ = [hub.__all__ +
 class _CurrentContext(object):
 
     @property
-    def hub(self):
-        return get_hub()
+    def loop(self):
+        return get_loop()
 
     @property
     def task(self):
