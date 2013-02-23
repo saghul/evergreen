@@ -7,7 +7,7 @@ import flubber
 from flubber.event import Event
 from flubber._tasklet import tasklet, get_current, TaskletExit
 
-__all__ = ['Task', 'TaskExit', 'get_current', 'spawn', 'sleep', 'yield_']
+__all__ = ['Task', 'TaskExit', 'get_current', 'spawn', 'sleep']
 
 
 def sleep(seconds=0):
@@ -25,20 +25,6 @@ def sleep(seconds=0):
         loop.switch()
     finally:
         timer.cancel()
-
-
-def yield_():
-    """Yield control to another eligible coroutine for a short period of time.
-
-    For example, if one is looping over a large list performing an expensive
-    calculation without calling any socket methods, it's a good idea to
-    call ``yield_()`` occasionally; otherwise nothing else will run.
-    """
-    loop = flubber.current.loop
-    current = get_current()
-    assert loop.tasklet is not current
-    loop.call_soon(current.switch)
-    loop.switch()
 
 
 def spawn(func, *args, **kwargs):
