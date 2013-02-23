@@ -7,7 +7,7 @@ import flubber
 from flubber.event import Event
 from flubber._tasklet import tasklet, get_current, TaskletExit
 
-__all__ = ['Task', 'TaskExit', 'get_current', 'spawn', 'sleep']
+__all__ = ['Task', 'TaskExit', 'get_current', 'spawn', 'sleep', 'task']
 
 
 def sleep(seconds=0):
@@ -39,6 +39,14 @@ def spawn(func, *args, **kwargs):
     t = Task(target=func, args=args, kwargs=kwargs)
     t.start()
     return t
+
+
+def task(func):
+    """Decorator to run the decorated function as a Task
+    """
+    def task_wrapper(*args, **kwargs):
+        return spawn(func, *args, **kwargs)
+    return task_wrapper
 
 
 TaskExit = TaskletExit
