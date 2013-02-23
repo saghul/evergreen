@@ -4,8 +4,8 @@
 
 import six
 
-from flubber.lock import Semaphore
 from flubber.event import Event
+from flubber.locks import Semaphore
 
 __all__ = ['Channel']
 

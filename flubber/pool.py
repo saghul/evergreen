@@ -7,7 +7,7 @@ from functools import partial
 import flubber
 
 from flubber.event import Event
-from flubber.lock import Semaphore
+from flubber.locks import Semaphore
 
 __all__ = ['Pool']
 

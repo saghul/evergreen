@@ -11,7 +11,7 @@ from time import time as time
 
 import six
 
-from flubber.lock import Semaphore, Condition
+from flubber.locks import Semaphore, Condition
 
 __all__ = ['Empty', 'Full', 'Queue', 'PriorityQueue', 'LifoQueue']
 
