@@ -25,10 +25,10 @@ class Pool(object):
         self._lock.acquire()
         self._running_jobs += 1
         self._end_event.clear()
-        flubber.spawn(self._runner, partial(func, *args, **kw))
+        return flubber.spawn(self._runner, partial(func, *args, **kw))
 
     def join(self, timeout=None):
-        self._end_event.wait(timeout)
+        return self._end_event.wait(timeout)
 
     def _runner(self, func):
         try:
