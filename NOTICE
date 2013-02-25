@@ -1,0 +1,19 @@
+Flubber is written and maintained by
+
+    Saúl Ibarra Corretgé <saghul@gmail.com>
+
+
+Flubber contains pieces of code from other projects, copyright goes
+to their autors
+
+    - Base: Flubber was initially based on Eventlet
+    - socket.py: Adapted from Gevent
+    - ssl.py: Adapted from Gevent
+    - ext/*: Adapted from Flask
+
+Some modules (futures, queue, locks) contain code derived from the Python
+standard library.
+
+
+If your code is used in Flubber and you are not mentioned above, please contact the maintainer.
+

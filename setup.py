@@ -8,10 +8,10 @@ setup(name             = "flubber",
       version          = __version__,
       author           = "Saúl Ibarra Corretgé",
       author_email     = "saghul@gmail.com",
-      url              = "http://github.com/saghul/flubber", # not yet
+      url              = "http://github.com/saghul/flubber",
       description      = "Cooperative multitasking and i/o for Python",
       long_description = open("README.rst").read(),
-      packages         = ["flubber", "flubber.core", "flubber.ext", "flubber.green"],
+      packages         = ["flubber", "flubber.ext", "flubber.lib"],
       platforms        = ["POSIX", "Microsoft Windows"],
       classifiers      = [
           "Development Status :: 4 - Beta",
@@ -23,10 +23,11 @@ setup(name             = "flubber",
           "Programming Language :: Python :: 2",
           "Programming Language :: Python :: 2.6",
           "Programming Language :: Python :: 2.7",
-          #"Programming Language :: Python :: 3",
-          #"Programming Language :: Python :: 3.0",
-          #"Programming Language :: Python :: 3.1",
-          #"Programming Language :: Python :: 3.2"
+          "Programming Language :: Python :: 3",
+          "Programming Language :: Python :: 3.0",
+          "Programming Language :: Python :: 3.1",
+          "Programming Language :: Python :: 3.2"
+          "Programming Language :: Python :: 3.3"
       ],
      )
 
