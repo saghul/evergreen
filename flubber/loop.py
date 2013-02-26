@@ -56,6 +56,19 @@ class Handler(object):
         return res
 
 
+class Timer(Handler):
+
+    def __init__(self, callback, args=(), kwargs={}, timer=None):
+        super(Timer, self).__init__(callback, args, kwargs)
+        self._timer = timer
+
+    def cancel(self):
+        super(Timer, self).cancel()
+        if self._timer and self._timer.active:
+            self._timer.stop()
+        self._timer = None
+
+
 class EventLoop(object):
 
     def __init__(self):
@@ -79,24 +92,31 @@ class EventLoop(object):
 
         self._ready_processor = pyuv.Check(self._loop)
         self._ready_processor.start(self._process_ready)
+        self._ready_processor.unref()
+
+        self._ticker = pyuv.Idle(self._loop)
 
         self._install_signal_checker()
 
     def call_soon(self, callback, *args, **kw):
         handler = Handler(callback, args, kw)
         self._ready.append(handler)
+        if not self._ticker.active:
+            self._ticker.start(lambda x: None)
+            self._ready_processor.ref()
         return handler
 
     def call_from_thread(self, callback, *args, **kw):
-        handler = self.call_soon(callback, *args, **kw)
+        handler = Handler(callback, args, kw)
+        self._ready.append(handler)
         self._waker.send()
         return handler
 
     def call_later(self, delay, callback, *args, **kw):
         if delay <= 0:
             return self.call_soon(callback, *args, **kw)
-        handler = Handler(callback, args, kw)
         timer = pyuv.Timer(self._loop)
+        handler = Timer(callback, args, kw, timer)
         timer.handler = handler
         timer.start(self._timer_cb, delay, 0)
         self._timers.add(timer)
@@ -105,8 +125,8 @@ class EventLoop(object):
     def call_repeatedly(self, interval, callback, *args, **kw):
         if interval <= 0:
             raise ValueError('invalid interval specified: {}'.format(interval))
-        handler = Handler(callback, args, kw)
         timer = pyuv.Timer(self._loop)
+        handler = Timer(callback, args, kw, timer)
         timer.handler = handler
         timer.start(self._timer_cb, interval, interval)
         self._timers.add(timer)
@@ -226,8 +246,9 @@ class EventLoop(object):
         self._loop = None
         self.threadpool = None
 
-        self._waker = None
         self._ready_processor = None
+        self._ticker = None
+        self._waker = None
 
         self._fd_map.clear()
         self._timers.clear()
@@ -244,26 +265,7 @@ class EventLoop(object):
             self.tasklet.parent.throw(typ, value)
 
     def _run_loop(self):
-        run_once = self._run_once
-        while run_once():
-            pass
-
-    def _run_once(self):
-        # Check timers
-        for timer in [timer for timer in self._timers if timer.handler.cancelled]:
-            timer.close()
-            self._timers.remove(timer)
-            del timer.handler
-
-        # Make sure the loop iterates but doesn't block for i/o if there are pending callbacks
-        if self._ready:
-            self._ready_processor.ref()
-            mode = pyuv.UV_RUN_NOWAIT
-        else:
-            self._ready_processor.unref()
-            mode = pyuv.UV_RUN_ONCE
-
-        return self._loop.run(mode)
+        self._loop.run(pyuv.UV_RUN_DEFAULT)
 
     def _cleanup_loop(self):
         def cb(handle):
@@ -281,6 +283,7 @@ class EventLoop(object):
         return poll_h
 
     def _process_ready(self, handle):
+        # Run all queued callbacks
         ntodo = len(self._ready)
         for x in xrange(ntodo):
             handler = self._ready.popleft()
@@ -288,9 +291,16 @@ class EventLoop(object):
                 # loop.excepthook takes care of exception handling
                 handler()
         if not self._ready:
+            self._ticker.stop()
             self._ready_processor.unref()
         else:
             self._ready_processor.ref()
+
+        # Check timers
+        for timer in [timer for timer in self._timers if timer.handler.cancelled]:
+            timer.close()
+            self._timers.remove(timer)
+            del timer.handler
 
     def _timer_cb(self, timer):
         if timer.handler.cancelled:
