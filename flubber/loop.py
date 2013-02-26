@@ -306,11 +306,7 @@ class EventLoop(object):
             del timer.handler
 
     def _timer_cb(self, timer):
-        if timer.handler.cancelled:
-            timer.close()
-            self._timers.remove(timer)
-            del timer.handler
-            return
+        assert not timer.handler.cancelled
         self._ready.append(timer.handler)
         if not timer.repeat:
             timer.close()
