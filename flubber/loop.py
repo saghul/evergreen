@@ -226,14 +226,19 @@ class EventLoop(object):
         if self._started:
             raise RuntimeError('event loop was already started')
         self._started = True
-        self.tasklet.switch()
+        try:
+            self.tasklet.switch()
+        finally:
+            self._destroy()
 
-    def destroy(self):
+    # internal
+
+    def _destroy(self):
         global _tls
         try:
             loop = _tls.loop
         except AttributeError:
-            raise RuntimeError('event loop is already destroyed')
+            return
         else:
             if loop is not self:
                 raise RuntimeError('destroy() can only be called from the same thread were the event loop was created')
@@ -253,8 +258,6 @@ class EventLoop(object):
         self._fd_map.clear()
         self._timers.clear()
         self._ready.clear()
-
-    # internal
 
     def _handle_error(self, typ, value, tb):
         if not issubclass(typ, (TaskletExit, SystemExit)):
