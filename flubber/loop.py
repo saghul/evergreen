@@ -22,6 +22,10 @@ threading = patcher.original('threading')
 _tls = threading.local()
 
 
+def _noop(*args, **kwargs):
+    pass
+
+
 def get_loop():
     """Get the current event loop singleton object.
     """
@@ -87,7 +91,7 @@ class EventLoop(object):
         self._timers = set()
         self._ready = deque()
 
-        self._waker = pyuv.Async(self._loop, lambda x: None)
+        self._waker = pyuv.Async(self._loop, _noop)
         self._waker.unref()
 
         self._ready_processor = pyuv.Check(self._loop)
@@ -102,7 +106,7 @@ class EventLoop(object):
         handler = Handler(callback, args, kw)
         self._ready.append(handler)
         if not self._ticker.active:
-            self._ticker.start(lambda x: None)
+            self._ticker.start(_noop)
         return handler
 
     def call_from_thread(self, callback, *args, **kw):
