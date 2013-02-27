@@ -103,7 +103,6 @@ class EventLoop(object):
         self._ready.append(handler)
         if not self._ticker.active:
             self._ticker.start(lambda x: None)
-            self._ready_processor.ref()
         return handler
 
     def call_from_thread(self, callback, *args, **kw):
@@ -295,9 +294,6 @@ class EventLoop(object):
                 handler()
         if not self._ready:
             self._ticker.stop()
-            self._ready_processor.unref()
-        else:
-            self._ready_processor.ref()
 
         # Check timers
         for timer in [timer for timer in self._timers if timer.handler.cancelled]:
