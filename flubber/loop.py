@@ -36,6 +36,7 @@ def get_loop():
 
 
 class Handler(object):
+    __slots__ = ('_callback', '_args', '_kwargs', '_cancelled')
 
     def __init__(self, callback, args=(), kwargs={}):
         self._callback = callback
@@ -61,6 +62,7 @@ class Handler(object):
 
 
 class Timer(Handler):
+    __slots__ = ('_timer')
 
     def __init__(self, callback, args=(), kwargs={}, timer=None):
         super(Timer, self).__init__(callback, args, kwargs)
