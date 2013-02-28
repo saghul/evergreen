@@ -64,8 +64,7 @@ def inject(module_name, new_globals, *additional_modules):
 
     if not additional_modules:
         # supply some defaults
-        additional_modules = (_os_modules() +
-                              _select_modules() +
+        additional_modules = (_select_modules() +
                               _socket_modules() +
                               _time_modules())
 
@@ -119,8 +118,7 @@ def patch_function(func, *additional_modules):
     way of getting around."""
     if not additional_modules:
         # supply some defaults
-        additional_modules = (_os_modules() +
-                              _select_modules() +
+        additional_modules = (_select_modules() +
                               _socket_modules() +
                               _time_modules())
 
@@ -193,7 +191,7 @@ def patch(**on):
 
     It's safe to call monkey_patch multiple times.
     """
-    accepted_args = set(('os', 'select', 'socket', 'time'))
+    accepted_args = set(('select', 'socket', 'time'))
     default_on = on.pop("all",None)
     for k in on.iterkeys():
         if k not in accepted_args:
@@ -204,9 +202,6 @@ def patch(**on):
         on.setdefault(modname, default_on)
 
     modules_to_patch = []
-    if on['os'] and not already_patched.get('os'):
-        modules_to_patch += _os_modules()
-        already_patched['os'] = True
     if on['select'] and not already_patched.get('select'):
         modules_to_patch += _select_modules()
         already_patched['select'] = True
@@ -241,10 +236,6 @@ def is_patched(module):
     module."""
     return module in already_patched or getattr(module, '__name__', None) in already_patched
 
-
-def _os_modules():
-    from flubber.lib import os
-    return [('os', os)]
 
 def _select_modules():
     from flubber.lib import select
