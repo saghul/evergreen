@@ -4,10 +4,12 @@
 
 __version__ = '0.0.1.dev'
 
+from flubber.channel import *
 from flubber.loop import *
 from flubber.tasks import *
 
-__all__ = [loop.__all__ +
+__all__ = [channel.__all__ +
+           loop.__all__ +
            tasks.__all__ +
            ['current', '__version__']]
 
