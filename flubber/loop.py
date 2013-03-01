@@ -8,18 +8,16 @@ import signal
 import traceback
 
 from collections import deque
+from threading import local
 
-from flubber import patcher
 from flubber.threadpool import ThreadPool
 from flubber._socketpair import SocketPair
 from flubber._tasklet import tasklet, get_current, TaskletExit
 
-
 __all__ = ['get_loop', 'EventLoop']
 
 
-threading = patcher.original('threading')
-_tls = threading.local()
+_tls = local()
 
 
 def _noop(*args, **kwargs):
