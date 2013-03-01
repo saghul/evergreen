@@ -236,6 +236,12 @@ class EventLoop(object):
         finally:
             self._destroy()
 
+    def stop(self):
+        if not self._started:
+            raise RuntimeError('event loop has not been started yet')
+        if self._loop:
+            self._loop.stop()
+
     # internal
 
     def _destroy(self):
