@@ -545,7 +545,7 @@ class TaskPoolExecutor(object):
                 continue
             if self._shutdown:
                 # Notice other workers
-                work_queue.put(None)
+                self._work_queue.put(None)
                 return
 
     def __enter__(self):
