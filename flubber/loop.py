@@ -11,9 +11,9 @@ from collections import deque
 from threading import local
 
 from flubber.futures import TaskPoolExecutor
-from flubber.threadpool import ThreadPool
 from flubber._socketpair import SocketPair
 from flubber._tasklet import tasklet, get_current, TaskletExit
+from flubber._threadpool import ThreadPool
 
 __all__ = ['get_loop', 'EventLoop']
 
@@ -84,9 +84,9 @@ class EventLoop(object):
         _tls.loop = self
         self._loop = pyuv.Loop()
         self._loop.excepthook = self._handle_error
-        self.tasklet = tasklet(self._run_loop)
-        self.threadpool = ThreadPool(self)
         self._default_executor = None
+        self._threadpool = ThreadPool(self)
+        self.tasklet = tasklet(self._run_loop)
 
         self._started = False
 
@@ -139,6 +139,7 @@ class EventLoop(object):
         return handler
 
     def run_in_executor(self, executor, callback, *args, **kw):
+        assert not isinstance(callback, Handler)
         if executor is None:
             executor = self._default_executor
             if executor is None:
@@ -272,8 +273,8 @@ class EventLoop(object):
         self._cleanup_loop()
         self._loop.excepthook = None
         self._loop = None
-        self.threadpool = None
         self._default_executor = None
+        self._threadpool = None
 
         self._ready_processor = None
         self._ticker = None

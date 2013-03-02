@@ -235,7 +235,7 @@ class socket(object):
         sock = self._sock
         if isinstance(address, tuple):
             loop = flubber.current.loop
-            r = loop.threadpool.spawn(getaddrinfo, address[0], address[1], sock.family, sock.type, sock.proto).result()
+            r = getaddrinfo(address[0], address[1], sock.family, sock.type, sock.proto)
             address = r[0][-1]
         timer = Timeout(self.timeout, timeout('timed out'))
         timer.start()
@@ -429,23 +429,23 @@ SocketType = socket
 
 def _run_in_threadpool(func, *args, **kw):
     loop = flubber.current.loop
-    return loop.threadpool.spawn(func, *args, **kw)
+    return loop._threadpool.spawn(func, *args, **kw).wait()
 
 
 def gethostbyname(*args, **kw):
-    return _run_in_threadpool(__socket__.gethostbyname, *args, **kw).result()
+    return _run_in_threadpool(__socket__.gethostbyname, *args, **kw)
 
 
 def gethostbyname_ex(*args, **kw):
-    return _run_in_threadpool(__socket__.gethostbyname_ex, *args, **kw).result()
+    return _run_in_threadpool(__socket__.gethostbyname_ex, *args, **kw)
 
 
 def getnameinfo(*args, **kw):
-    return _run_in_threadpool(__socket__.getnameinfo, *args, **kw).result()
+    return _run_in_threadpool(__socket__.getnameinfo, *args, **kw)
 
 
 def getaddrinfo(*args, **kw):
-    return _run_in_threadpool(__socket__.getaddrinfo, *args, **kw).result()
+    return _run_in_threadpool(__socket__.getaddrinfo, *args, **kw)
 
 
 def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT, source_address=None):
