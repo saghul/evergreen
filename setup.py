@@ -11,7 +11,7 @@ setup(name             = "flubber",
       url              = "http://github.com/saghul/flubber",
       description      = "Cooperative multitasking and i/o for Python",
       long_description = open("README.rst").read(),
-      packages         = ["flubber", "flubber.ext", "flubber.lib"],
+      packages         = ["flubber", "flubber.ext", "flubber.futures", "flubber.lib"],
       platforms        = ["POSIX", "Microsoft Windows"],
       classifiers      = [
           "Development Status :: 4 - Beta",
