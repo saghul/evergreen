@@ -1,24 +1,11 @@
-# -*- coding: utf-8 -
 #
 # This file is part of flubber. See the NOTICE for more information.
+#
 
 import time
 
 from flubber.event import Event
 from flubber.locks import Condition, Semaphore
-from flubber.queue import Queue
-from flubber.tasks import Task
-
-__all__ = ('FIRST_COMPLETED',
-           'FIRST_EXCEPTION',
-           'ALL_COMPLETED',
-           'CancelledError',
-           'TimeoutError',
-           'Future',
-           'Executor',
-           'wait',
-           'as_completed',
-           'TaskPoolExecutor')
 
 
 FIRST_COMPLETED = 'FIRST_COMPLETED'
@@ -429,32 +416,7 @@ class Future(object):
         self._run_callbacks()
 
 
-class _WorkItem(object):
-    def __init__(self, future, fn, args, kwargs):
-        self.future = future
-        self.fn = fn
-        self.args = args
-        self.kwargs = kwargs
-
-    def __call__(self):
-        if not self.future.set_running_or_notify_cancel():
-            return
-        try:
-            result = self.fn(*self.args, **self.kwargs)
-        except BaseException as e:
-            self.future.set_exception(e)
-        else:
-            self.future.set_result(result)
-
-
-class TaskPoolExecutor(object):
-
-    def __init__(self, max_workers):
-        self._max_workers = max_workers
-        self._tasks = set()
-        self._work_queue = Queue()
-        self._shutdown = False
-        self._shutdown_lock = Semaphore(1)
+class Executor(object):
 
     def submit(self, fn, *args, **kwargs):
         """Submits a callable to be executed with the given arguments.
@@ -465,14 +427,7 @@ class TaskPoolExecutor(object):
         Returns:
             A Future representing the given call.
         """
-        with self._shutdown_lock:
-            if self._shutdown:
-                raise RuntimeError('cannot schedule new futures after shutdown')
-            f = Future()
-            work = _WorkItem(f, fn, args, kwargs)
-            self._work_queue.put(work)
-            self._adjust_task_count()
-            return f
+        raise NotImplementedError
 
     def map(self, fn, *iterables, **kwargs):
         """Returns a iterator equivalent to map(fn, iter).
@@ -523,30 +478,7 @@ class TaskPoolExecutor(object):
                 futures have finished executing and the resources used by the
                 executor have been reclaimed.
         """
-        with self._shutdown_lock:
-            self._shutdown = True
-            self._work_queue.put(None)
-        if wait:
-            for task in self._tasks:
-                task.join()
-
-    def _adjust_task_count(self):
-        if len(self._tasks) < self._max_workers:
-            t = Task(self._work)
-            self._tasks.add(t)
-            t.start()
-
-    def _work(self):
-        while True:
-            work_item = self._work_queue.get(block=True)
-            if work_item is not None:
-                work_item()
-                del work_item
-                continue
-            if self._shutdown:
-                # Notice other workers
-                self._work_queue.put(None)
-                return
+        pass
 
     def __enter__(self):
         return self
