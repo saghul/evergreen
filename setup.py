@@ -14,7 +14,7 @@ setup(name             = "flubber",
       packages         = ["flubber", "flubber.ext", "flubber.futures", "flubber.lib"],
       platforms        = ["POSIX", "Microsoft Windows"],
       classifiers      = [
-          "Development Status :: 4 - Beta",
+          "Development Status :: 3 - Alpha",
           "Intended Audience :: Developers",
           "License :: OSI Approved :: MIT License",
           "Operating System :: POSIX",
