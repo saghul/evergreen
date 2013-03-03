@@ -30,12 +30,12 @@ class Semaphore(object):
     def __init__(self, value=1):
         if value < 0:
             raise ValueError("Semaphore must be initialized with a positive number, got %s" % value)
-        self.__counter = value
-        self.__waiters = set()
+        self._counter = value
+        self._waiters = set()
 
     def __repr__(self):
         params = (self.__class__.__name__, hex(id(self)),
-                  self.__counter, len(self.__waiters))
+                  self._counter, len(self._waiters))
         return '<%s at %s c=%s _w[%s]>' % params
 
     __str__ = __repr__
@@ -58,43 +58,43 @@ class Semaphore(object):
         When invoked with blocking set to false, do not block. If a call without
         an argument would block, return false immediately; otherwise, do the
         same thing as when called without arguments, and return true."""
-        if self.__counter > 0:
-            self.__counter -= 1
+        if self._counter > 0:
+            self._counter -= 1
             return True
         elif not blocking:
             return False
         else:
             current = flubber.current.task
-            self.__waiters.add(current)
+            self._waiters.add(current)
             timer = Timeout(timeout)
             timer.start()
             loop = flubber.current.loop
             try:
-                while self.__counter <= 0:
+                while self._counter <= 0:
                     loop.switch()
             except Timeout, e:
                 if e is timer:
                     return False
                 raise
             else:
-                self.__counter -= 1
+                self._counter -= 1
                 return True
             finally:
                 timer.cancel()
-                self.__waiters.discard(current)
+                self._waiters.discard(current)
 
     def release(self):
         """Release a semaphore, incrementing the internal counter by one. When
         it was zero on entry and another thread is waiting for it to become
         larger than zero again, wake up that thread.
         ignored"""
-        self.__counter += 1
-        if self.__waiters:
+        self._counter += 1
+        if self._waiters:
             flubber.current.loop.call_soon(self._notify_waiters)
 
     def _notify_waiters(self):
-        if self.__waiters and self.__counter > 0:
-            waiter = self.__waiters.pop()
+        if self._waiters and self._counter > 0:
+            waiter = self._waiters.pop()
             waiter.switch()
 
     def __enter__(self):
@@ -112,14 +112,14 @@ class BoundedSemaphore(Semaphore):
     *value* defaults to 1."""
     def __init__(self, value=1):
         super(BoundedSemaphore, self).__init__(value)
-        self.__initial_counter = value
+        self._initial_counter = value
 
     def release(self, blocking=True):
         """Release a semaphore, incrementing the internal counter by one. If
         the counter would exceed the initial value, raises ValueError.  When
         it was zero on entry and another thread is waiting for it to become
         larger than zero again, wake up that thread."""
-        if self.__counter >= self.__initial_counter:
+        if self._counter >= self._initial_counter:
             raise ValueError, "Semaphore released too many times"
         return super(BoundedSemaphore, self).release()
 
