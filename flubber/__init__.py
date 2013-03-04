@@ -18,11 +18,11 @@ class _CurrentContext(object):
 
     @property
     def loop(self):
-        return get_loop()
+        return loop.get_loop()
 
     @property
     def task(self):
-        return get_current()
+        return tasks.get_current()
 
 current = _CurrentContext()
 

@@ -7,7 +7,7 @@ import flubber
 from flubber.event import Event
 from flubber._tasklet import tasklet, get_current, TaskletExit
 
-__all__ = ['Task', 'TaskExit', 'get_current', 'spawn', 'sleep', 'task']
+__all__ = ['Task', 'TaskExit', 'spawn', 'sleep', 'task']
 
 
 def sleep(seconds=0):

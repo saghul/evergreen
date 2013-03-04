@@ -15,7 +15,7 @@ from flubber._socketpair import SocketPair
 from flubber._tasklet import tasklet, get_current, TaskletExit
 from flubber._threadpool import ThreadPool
 
-__all__ = ['get_loop', 'EventLoop']
+__all__ = ['EventLoop']
 
 
 _tls = local()
