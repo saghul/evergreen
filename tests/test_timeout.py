@@ -20,6 +20,15 @@ class TimeoutTests(FlubberTestCase):
         flubber.spawn(func)
         self.loop.run()
 
+    def test_with_none_timeout(self):
+        def sleep():
+            with Timeout(None):
+                flubber.sleep(0.01)
+        def func():
+            sleep()
+        flubber.spawn(func)
+        self.loop.run()
+
     def test_timeout_custom_exception(self):
         def sleep():
             with Timeout(0.01, FooTimeout):
