@@ -101,6 +101,18 @@ class Task(tasklet):
 
     # internal
 
+    def switch(self, *args, **kwargs):
+        current = flubber.current.task
+        if current is not flubber.current.loop.tasklet:
+            raise RuntimeError('only the loop tasklet can switch to a Task')
+        return super(Task, self).switch(*args, **kwargs)
+
+    def throw(self, *args):
+        current = flubber.current.task
+        if current is not flubber.current.loop.tasklet:
+            raise RuntimeError('only the loop tasklet can throw to a Task')
+        return super(Task, self).throw(*args)
+
     def run(self):
         try:
             self.run_()

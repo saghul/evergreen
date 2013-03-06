@@ -133,6 +133,17 @@ class TasksTests(FlubberTestCase):
         self.loop.run()
         self.assertTrue(not d.called)
 
+    def test_task_bogus_switch(self):
+        def func1():
+            flubber.sleep(0)
+            flubber.sleep(0)
+        def func2():
+            self.assertRaises(RuntimeError, t1.switch)
+            self.assertRaises(RuntimeError, t1.throw)
+        t1 = flubber.spawn(func1)
+        t2 = flubber.spawn(func2)
+        self.loop.run()
+
 #    def test_task_exception(self):
 #        def func():
 #            1/0
