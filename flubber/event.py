@@ -4,51 +4,40 @@
 
 __all__ = ['Event']
 
-import flubber
-
-from flubber.timeout import Timeout
+from flubber.locks import Condition, Semaphore
 
 
 class Event(object):
 
     def __init__(self):
+        self._cond = Condition(Semaphore(1))
         self._flag = False
-        self._waiters = set()
 
     def is_set(self):
         return self._flag
 
     def set(self):
-        self._flag = True
-        if self._waiters:
-            flubber.current.loop.call_soon(self._notify_waiters)
+        self._cond.acquire()
+        try:
+            self._flag = True
+            self._cond.notify_all()
+        finally:
+            self._cond.release()
 
     def clear(self):
-        self._flag = False
+        self._cond.acquire()
+        try:
+            self._flag = False
+        finally:
+            self._cond.release()
 
     def wait(self, timeout=None):
-        if self._flag:
-            return True
-        current = flubber.current.task
-        loop = flubber.current.loop
-        self._waiters.add(current)
-        timer = Timeout(timeout)
-        timer.start()
+        self._cond.acquire()
         try:
-            try:
-                loop.switch()
-            except Timeout as e:
-                if e is not timer:
-                    raise
+            signaled = self._flag
+            if not signaled:
+                signaled = self._cond.wait(timeout)
+            return signaled
         finally:
-            timer.cancel()
-            self._waiters.remove(current)
-        return self._flag
-
-    def _notify_waiters(self):
-        to_notify = set(self._waiters)
-        while to_notify:
-            waiter = to_notify.pop()
-            if waiter in self._waiters:
-                waiter.switch()
+            self._cond.release()
 
