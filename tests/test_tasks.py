@@ -84,6 +84,7 @@ class TasksTests(FlubberTestCase):
     def test_kill_running(self):
         called = []
         def func():
+            flubber.sleep(0)
             called.append(None)
             flubber.sleep(0)
             called.append(None)
