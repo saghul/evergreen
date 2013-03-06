@@ -85,7 +85,6 @@ class Task(tasklet):
         may be specified.  *throw_args* should be the same as the arguments to
         raise; either an exception instance or an exc_info tuple.
 
-        Calling :func:`kill` causes the calling task to cooperatively yield.
         """
         if self.dead:
             return
@@ -98,9 +97,7 @@ class Task(tasklet):
                     raise TaskExit()
             self.run_ = just_raise
             return
-        current = flubber.current.task
-        flubber.current.loop.call_soon(current.switch)
-        self.throw(*throw_args)
+        flubber.current.loop.call_soon(self.throw, *throw_args)
 
     # internal
 
