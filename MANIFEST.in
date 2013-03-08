@@ -1,2 +1,6 @@
 include MANIFEST.in README.rst LICENSE NOTICE
+include setup.py
+recursive-include docs *
+recursive-include tests *
+prune docs/_build
 
