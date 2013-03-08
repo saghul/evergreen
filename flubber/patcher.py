@@ -48,7 +48,7 @@ def import_patched(module_name, **additional_modules):
 
     The only required argument is the name of the module to be imported.
     """
-    return inject(module_name, None, tuple(additional_modules.items()))
+    return inject(module_name, None, *tuple(additional_modules.items()))
 
 
 def original(modname):
