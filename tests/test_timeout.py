@@ -29,6 +29,15 @@ class TimeoutTests(FlubberTestCase):
         flubber.spawn(func)
         self.loop.run()
 
+    def test_with_negative_timeout(self):
+        def sleep():
+            with Timeout(-1):
+                flubber.sleep(0.01)
+        def func():
+            sleep()
+        flubber.spawn(func)
+        self.loop.run()
+
     def test_timeout_custom_exception(self):
         def sleep():
             with Timeout(0.01, FooTimeout):
