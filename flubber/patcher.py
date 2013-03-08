@@ -5,7 +5,7 @@
 import sys
 import imp
 
-__all__ = ['inject', 'import_patched', 'patch', 'is_patched']
+__all__ = ['original', 'import_patched', 'patch', 'is_patched']
 
 __exclude = set(('__builtins__', '__file__', '__name__'))
 
@@ -39,6 +39,120 @@ class SysModulesSaver(object):
                         pass
         finally:
             imp.release_lock()
+
+
+def import_patched(module_name, **additional_modules):
+    """Imports a module in a way that ensures that the module uses "green"
+    versions of the standard library modules, so that everything works
+    nonblockingly.
+
+    The only required argument is the name of the module to be imported.
+    """
+    return inject(module_name, None, tuple(additional_modules.items()))
+
+
+def original(modname):
+    """ This returns an unpatched version of a module."""
+    # note that it's not necessary to temporarily install unpatched
+    # versions of all patchable modules during the import of the
+    # module; this is because none of them import each other, except
+    # for threading which imports thread
+    original_name = '__original_module_' + modname
+    if original_name in sys.modules:
+        return sys.modules.get(original_name)
+
+    # re-import the "pure" module and store it in the global _originals
+    # dict; be sure to restore whatever module had that name already
+    saver = SysModulesSaver((modname,))
+    sys.modules.pop(modname, None)
+    try:
+        real_mod = __import__(modname, {}, {}, modname.split('.')[:-1])
+        # save a reference to the unpatched module so it doesn't get lost
+        sys.modules[original_name] = real_mod
+    finally:
+        saver.restore()
+
+    return sys.modules[original_name]
+
+
+already_patched = {}
+
+def patch(**on):
+    """Globally patches certain system modules to be 'cooperaive'.
+
+    The keyword arguments afford some control over which modules are patched.
+    If no keyword arguments are supplied, all possible modules are patched.
+    If keywords are set to True, only the specified modules are patched.  E.g.,
+    ``monkey_patch(socket=True, select=True)`` patches only the select and
+    socket modules.  Most arguments patch the single module of the same name
+    (os, time, select).  The exception is socket, which also patches the ssl
+    module if present.
+
+    It's safe to call monkey_patch multiple times.
+    """
+    accepted_args = set(('select', 'socket', 'time'))
+    default_on = on.pop("all", None)
+    for k in on.iterkeys():
+        if k not in accepted_args:
+            raise TypeError("patch() got an unexpected keyword argument %r" % k)
+    if default_on is None:
+        default_on = not (True in on.values())
+    for modname in accepted_args:
+        on.setdefault(modname, default_on)
+
+    modules_to_patch = []
+    if on['select'] and not already_patched.get('select'):
+        modules_to_patch += _select_modules()
+        already_patched['select'] = True
+    if on['socket'] and not already_patched.get('socket'):
+        modules_to_patch += _socket_modules()
+        already_patched['socket'] = True
+    if on['time'] and not already_patched.get('time'):
+        modules_to_patch += _time_modules()
+        already_patched['time'] = True
+
+    imp.acquire_lock()
+    try:
+        for name, mod in modules_to_patch:
+            orig_mod = sys.modules.get(name)
+            if orig_mod is None:
+                orig_mod = __import__(name)
+            for attr_name in mod.__patched__:
+                patched_attr = getattr(mod, attr_name, None)
+                if patched_attr is not None:
+                    setattr(orig_mod, attr_name, patched_attr)
+    finally:
+        imp.release_lock()
+
+
+def is_patched(module):
+    """Returns True if the given module is monkeypatched currently, False if
+    not.  *module* can be either the module itself or its name.
+
+    Based entirely off the name of the module, so if you import a
+    module some other way than with the import keyword (including
+    import_patched), this might not be correct about that particular
+    module."""
+    return module in already_patched or getattr(module, '__name__', None) in already_patched
+
+
+# internal
+
+def _select_modules():
+    from flubber.lib import select
+    return [('select', select)]
+
+def _socket_modules():
+    from flubber.lib import socket
+    try:
+        from flubber.lib import ssl
+        return [('socket', socket), ('ssl', ssl)]
+    except ImportError:
+        return [('socket', socket)]
+
+def _time_modules():
+    from flubber.lib import time
+    return [('time', time)]
 
 
 def inject(module_name, new_globals, *additional_modules):
@@ -93,165 +207,9 @@ def inject(module_name, new_globals, *additional_modules):
         ## Keep a reference to the new module to prevent it from dying
         sys.modules[patched_name] = module
     finally:
-        saver.restore()  ## Put the original modules back
+        saver.restore()  # Put the original modules back
 
     return module
-
-
-def import_patched(module_name, *additional_modules, **kw_additional_modules):
-    """Imports a module in a way that ensures that the module uses "green"
-    versions of the standard library modules, so that everything works
-    nonblockingly.
-
-    The only required argument is the name of the module to be imported.
-    """
-    return inject(module_name,
-                  None,
-                  *additional_modules + tuple(kw_additional_modules.items()))
-
-
-def patch_function(func, *additional_modules):
-    """Decorator that returns a version of the function that patches
-    some modules for the duration of the function call.  This is
-    deeply gross and should only be used for functions that import
-    network libraries within their function bodies that there is no
-    way of getting around."""
-    if not additional_modules:
-        # supply some defaults
-        additional_modules = (_select_modules() +
-                              _socket_modules() +
-                              _time_modules())
-
-    def patched(*args, **kw):
-        saver = SysModulesSaver()
-        for name, mod in additional_modules:
-            saver.save(name)
-            sys.modules[name] = mod
-        try:
-            return func(*args, **kw)
-        finally:
-            saver.restore()
-    return patched
-
-def _original_patch_function(func, *module_names):
-    """Kind of the contrapositive of patch_function: decorates a
-    function such that when it's called, sys.modules is populated only
-    with the unpatched versions of the specified modules.  Unlike
-    patch_function, only the names of the modules need be supplied,
-    and there are no defaults.  This is a gross hack; tell your kids not
-    to import inside function bodies!"""
-    def patched(*args, **kw):
-        saver = SysModulesSaver(module_names)
-        for name in module_names:
-            sys.modules[name] = original(name)
-        try:
-            return func(*args, **kw)
-        finally:
-            saver.restore()
-    return patched
-
-
-def original(modname):
-    """ This returns an unpatched version of a module; this is useful for
-    flubber itself."""
-    # note that it's not necessary to temporarily install unpatched
-    # versions of all patchable modules during the import of the
-    # module; this is because none of them import each other, except
-    # for threading which imports thread
-    original_name = '__original_module_' + modname
-    if original_name in sys.modules:
-        return sys.modules.get(original_name)
-
-    # re-import the "pure" module and store it in the global _originals
-    # dict; be sure to restore whatever module had that name already
-    saver = SysModulesSaver((modname,))
-    sys.modules.pop(modname, None)
-    try:
-        real_mod = __import__(modname, {}, {}, modname.split('.')[:-1])
-        # save a reference to the unpatched module so it doesn't get lost
-        sys.modules[original_name] = real_mod
-    finally:
-        saver.restore()
-
-    return sys.modules[original_name]
-
-
-already_patched = {}
-
-def patch(**on):
-    """Globally patches certain system modules to be 'cooperaive'.
-
-    The keyword arguments afford some control over which modules are patched.
-    If no keyword arguments are supplied, all possible modules are patched.
-    If keywords are set to True, only the specified modules are patched.  E.g.,
-    ``monkey_patch(socket=True, select=True)`` patches only the select and
-    socket modules.  Most arguments patch the single module of the same name
-    (os, time, select).  The exception is socket, which also patches the ssl
-    module if present.
-
-    It's safe to call monkey_patch multiple times.
-    """
-    accepted_args = set(('select', 'socket', 'time'))
-    default_on = on.pop("all",None)
-    for k in on.iterkeys():
-        if k not in accepted_args:
-            raise TypeError("patch() got an unexpected keyword argument %r" % k)
-    if default_on is None:
-        default_on = not (True in on.values())
-    for modname in accepted_args:
-        on.setdefault(modname, default_on)
-
-    modules_to_patch = []
-    if on['select'] and not already_patched.get('select'):
-        modules_to_patch += _select_modules()
-        already_patched['select'] = True
-    if on['socket'] and not already_patched.get('socket'):
-        modules_to_patch += _socket_modules()
-        already_patched['socket'] = True
-    if on['time'] and not already_patched.get('time'):
-        modules_to_patch += _time_modules()
-        already_patched['time'] = True
-
-    imp.acquire_lock()
-    try:
-        for name, mod in modules_to_patch:
-            orig_mod = sys.modules.get(name)
-            if orig_mod is None:
-                orig_mod = __import__(name)
-            for attr_name in mod.__patched__:
-                patched_attr = getattr(mod, attr_name, None)
-                if patched_attr is not None:
-                    setattr(orig_mod, attr_name, patched_attr)
-    finally:
-        imp.release_lock()
-
-
-def is_patched(module):
-    """Returns True if the given module is monkeypatched currently, False if
-    not.  *module* can be either the module itself or its name.
-
-    Based entirely off the name of the module, so if you import a
-    module some other way than with the import keyword (including
-    import_patched), this might not be correct about that particular
-    module."""
-    return module in already_patched or getattr(module, '__name__', None) in already_patched
-
-
-def _select_modules():
-    from flubber.lib import select
-    return [('select', select)]
-
-def _socket_modules():
-    from flubber.lib import socket
-    try:
-        from flubber.lib import ssl
-        return [('socket', socket), ('ssl', ssl)]
-    except ImportError:
-        return [('socket', socket)]
-
-def _time_modules():
-    from flubber.lib import time
-    return [('time', time)]
 
 
 def slurp_properties(source, destination, ignore=[], srckeys=None):
