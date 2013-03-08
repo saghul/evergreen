@@ -51,10 +51,20 @@ def task(func):
 
 TaskExit = TaskletExit
 
+
+# Helper to generate new thread names
+_counter = 0
+def _newname(template="Task-%d"):
+    global _counter
+    _counter = _counter + 1
+    return template % _counter
+
+
 class Task(tasklet):
 
-    def __init__(self, target=None, args=(), kwargs={}):
+    def __init__(self, target=None, name=None, args=(), kwargs={}):
         super(Task, self).__init__(parent=flubber.current.loop.tasklet)
+        self._name = str(name or _newname())
         self._target = target
         self._args = args
         self._kwargs = kwargs
@@ -98,6 +108,10 @@ class Task(tasklet):
             self.run_ = just_raise
             return
         flubber.current.loop.call_soon(self.throw, *throw_args)
+
+    @property
+    def name(self):
+        return self._name
 
     # internal
 
