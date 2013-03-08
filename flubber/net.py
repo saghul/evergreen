@@ -18,16 +18,6 @@ def _check_ip_family(address, family):
 
 
 def connect(endpoint, source_address=None):
-    """Convenience function for opening client sockets.
-
-    :param endpoint: Endpoint address to connect to. TCP, UDP and UNIX sockets are supported. Examples:
-        tcp:127.0.0.1:1234
-        udp:127.0.0.1:1234
-        unix:/tmp/foo.sock
-    :param source_address: Local address to bind to, optional.
-    :return: The connected green socket object.
-    """
-
     proto, _, netloc = endpoint.partition(':')
     proto = proto.lower()
     if proto in ('tcp', 'udp'):
@@ -63,18 +53,6 @@ def connect(endpoint, source_address=None):
 
 
 def listen(endpoint, backlog=128):
-    """Convenience function for opening server sockets.
-
-    Sets SO_REUSEADDR on the socket to save on annoyance.
-
-    :param endpoint: Endpoint address to listen on. TCP, UDP and UNIX sockets are supported. Examples:
-        tcp:127.0.0.1:1234
-        udp:127.0.0.1:1234
-        unix:/tmp/foo.sock
-    :param backlog: The maximum number of queued connections. Should be at least 1; the maximum value is system-dependent.
-    :return: The listening green socket object.
-    """
-
     proto, _, netloc = endpoint.partition(':')
     proto = proto.lower()
     if proto in ('tcp', 'udp'):
