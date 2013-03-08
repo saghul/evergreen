@@ -38,20 +38,20 @@ class Queue(object):
         # releasing the conditions also acquires and releases mutex.
         self.mutex = Semaphore()
         # Notify not_empty whenever an item is added to the queue; a
-        # thread waiting to get is notified then.
+        # task waiting to get is notified then.
         self.not_empty = Condition(self.mutex)
         # Notify not_full whenever an item is removed from the queue;
-        # a thread waiting to put is notified then.
+        # a task waiting to put is notified then.
         self.not_full = Condition(self.mutex)
         # Notify all_tasks_done whenever the number of unfinished tasks
-        # drops to zero; thread waiting to join() is notified to resume
+        # drops to zero; task waiting to join() is notified to resume
         self.all_tasks_done = Condition(self.mutex)
         self.unfinished_tasks = 0
 
     def task_done(self):
         """Indicate that a formerly enqueued task is complete.
 
-        Used by Queue consumer threads.  For each get() used to fetch a task,
+        Used by Queue consumer tasks.  For each get() used to fetch a task,
         a subsequent call to task_done() tells the queue that the processing
         on the task is complete.
 
@@ -77,7 +77,7 @@ class Queue(object):
         """Blocks until all items in the Queue have been gotten and processed.
 
         The count of unfinished tasks goes up whenever an item is added to the
-        queue. The count goes down whenever a consumer thread calls task_done()
+        queue. The count goes down whenever a consumer task calls task_done()
         to indicate the item was retrieved and all work on it is complete.
 
         When the count of unfinished tasks drops to zero, join() unblocks.
