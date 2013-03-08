@@ -109,6 +109,16 @@ class Task(tasklet):
             return
         flubber.current.loop.call_soon(self.throw, *throw_args)
 
+    def __repr__(self):
+        status = "initial"
+        if self._started:
+            status = "started"
+        if self.dead:
+            status = "dead"
+        if self._exit_event.is_set():
+            status = "ended"
+        return "<%s(%s, %s)>" % (self.__class__.__name__, self._name, status)
+
     @property
     def name(self):
         return self._name
