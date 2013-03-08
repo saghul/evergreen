@@ -69,10 +69,16 @@ class _WorkItem(object):
         self.args = args
         self.kwargs = kwargs
         self._async = pyuv.Async(flubber.current.loop._loop, self._async_cb)
+        self._event = threading.Event()
         self._result = None
         self._exc = None
+        self._cancelled = False
 
     def run(self):
+        self._async.send()
+        self._event.wait()
+        if self._cancelled:
+            return
         try:
             self._result = self.fn(*self.args, **self.kwargs)
         except BaseException:
@@ -81,12 +87,20 @@ class _WorkItem(object):
             self._async.send()
 
     def _async_cb(self, handle):
-        self._async.close()
-        if self._exc is not None:
-            self.future.set_exception(self._exc)
+        if not self._event.is_set():
+            if not self.future.set_running_or_notify_cancel():
+                self._async.close()
+                self._cancelled = True
+                self._event.set()
+                return
+            self._event.set()
         else:
-            self.future.set_result(self._result)
-        self._result = self._exc = None
+            self._async.close()
+            if self._exc is not None:
+                self.future.set_exception(self._exc)
+            else:
+                self.future.set_result(self._result)
+            self._result = self._exc = None
 
 
 def _worker(executor_reference, work_queue):
@@ -123,8 +137,6 @@ class ThreadPoolExecutor(Executor):
             if self._shutdown:
                 raise RuntimeError('cannot schedule new futures after shutdown')
             f = Future()
-            # TODO: allow futures to be cancelled with this executor
-            f.set_running_or_notify_cancel()
             w = _WorkItem(f, fn, args, kwargs)
             self._work_queue.put(w)
             self._adjust_thread_count()
