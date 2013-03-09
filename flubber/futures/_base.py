@@ -327,7 +327,7 @@ class Future(object):
         with self._condition:
             return self._state in (CANCELLED, CANCELLED_AND_NOTIFIED, FINISHED)
 
-    def result(self, timeout=None):
+    def get(self, timeout=None):
         with self._condition:
             if self._state in (CANCELLED, CANCELLED_AND_NOTIFIED):
                 raise CancelledError()
@@ -340,22 +340,6 @@ class Future(object):
                 raise CancelledError()
             elif self._state == FINISHED:
                 return self._get_result()
-            else:
-                raise TimeoutError()
-
-    def exception(self, timeout=None):
-        with self._condition:
-            if self._state in (CANCELLED, CANCELLED_AND_NOTIFIED):
-                raise CancelledError()
-            elif self._state == FINISHED:
-                return self._exception
-
-            self._condition.wait(timeout)
-
-            if self._state in (CANCELLED, CANCELLED_AND_NOTIFIED):
-                raise CancelledError()
-            elif self._state == FINISHED:
-                return self._exception
             else:
                 raise TimeoutError()
 
