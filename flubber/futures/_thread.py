@@ -8,7 +8,6 @@ import weakref
 import sys
 
 import flubber
-import pyuv
 import six
 
 if six.PY3:
@@ -68,40 +67,33 @@ class _WorkItem(object):
         self.fn = fn
         self.args = args
         self.kwargs = kwargs
-        self._async = pyuv.Async(flubber.current.loop._loop, self._async_cb)
+        self.loop = flubber.current.loop
+        # Keep the loop alive while this work item is queued
+        self.handler = self.loop.call_repeatedly(24*3600, lambda: None)
         self._event = threading.Event()
         self._result = None
         self._exc = None
         self._cancelled = False
 
     def run(self):
-        self._async.send()
+        self.loop.call_from_thread(self._set_running)
         self._event.wait()
         if self._cancelled:
             return
         try:
-            self._result = self.fn(*self.args, **self.kwargs)
+            r = self.fn(*self.args, **self.kwargs)
+            self.loop.call_from_thread(self.future.set_result, r)
         except BaseException:
-            self._exc = sys.exc_info()[1]
+            e = sys.exc_info()[1]
+            self.loop.call_from_thread(self.future.set_exception, e)
         finally:
-            self._async.send()
+            self.handler.cancel()
 
-    def _async_cb(self, handle):
-        if not self._event.is_set():
-            if not self.future.set_running_or_notify_cancel():
-                self._async.close()
-                self._cancelled = True
-                self._event.set()
-                return
-            self._event.set()
-        else:
-            self._async.close()
-            if self._exc is not None:
-                self.future.set_exception(self._exc)
-            else:
-                self.future.set_result(self._result)
-            self._result = self._exc = None
-
+    def _set_running(self):
+        if not self.future.set_running_or_notify_cancel():
+            self.handler.cancel()
+            self._cancelled = True
+        self._event.set()
 
 def _worker(executor_reference, work_queue):
     while True:
