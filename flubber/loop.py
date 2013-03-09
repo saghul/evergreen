@@ -74,6 +74,12 @@ class Timer(Handler):
         self._timer = None
 
 
+class Ticker(pyuv.Idle):
+    def tick(self, *args, **kwargs):
+        if not self.active:
+            self.start(_noop)
+
+
 class EventLoop(object):
     DEFAULT_EXECUTOR_WORKERS = 100
 
@@ -94,22 +100,21 @@ class EventLoop(object):
         self._timers = set()
         self._ready = deque()
 
-        self._waker = pyuv.Async(self._loop, _noop)
-        self._waker.unref()
-
         self._ready_processor = pyuv.Check(self._loop)
         self._ready_processor.start(self._process_ready)
         self._ready_processor.unref()
 
-        self._ticker = pyuv.Idle(self._loop)
+        self._ticker = Ticker(self._loop)
+
+        self._waker = pyuv.Async(self._loop, self._ticker.tick)
+        self._waker.unref()
 
         self._install_signal_checker()
 
     def call_soon(self, callback, *args, **kw):
         handler = Handler(callback, args, kw)
         self._ready.append(handler)
-        if not self._ticker.active:
-            self._ticker.start(_noop)
+        self._ticker.tick()
         return handler
 
     def call_from_thread(self, callback, *args, **kw):
