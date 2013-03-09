@@ -5,6 +5,10 @@ import flubber
 from flubber import futures
 
 
+def dummy():
+    return 42
+
+
 class FuturesTests(FlubberTestCase):
 
     def test_default_executor(self):
@@ -43,6 +47,14 @@ class FuturesTests(FlubberTestCase):
             return 42
         def waiter():
             f = executor.submit(func)
+            self.assertEqual(f.result(), 42)
+        flubber.spawn(waiter)
+        self.loop.run()
+
+    def test_processpool_executor(self):
+        executor = futures.ProcessPoolExecutor(5)
+        def waiter():
+            f = executor.submit(dummy)
             self.assertEqual(f.result(), 42)
         flubber.spawn(waiter)
         self.loop.run()

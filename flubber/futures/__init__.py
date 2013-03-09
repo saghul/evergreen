@@ -13,6 +13,7 @@ from flubber.futures._base import (FIRST_COMPLETED,
                                    as_completed)
 from flubber.futures._task import TaskPoolExecutor
 from flubber.futures._thread import ThreadPoolExecutor
+from flubber.futures._process import ProcessPoolExecutor
 
 __all__ =  ('FIRST_COMPLETED',
             'FIRST_EXCEPTION',
@@ -24,5 +25,6 @@ __all__ =  ('FIRST_COMPLETED',
             'wait',
             'as_completed',
             'TaskPoolExecutor',
-            'ThreadPoolExecutor')
+            'ThreadPoolExecutor',
+            'ProcessPoolExecutor')
 
