@@ -16,7 +16,7 @@ class FuturesTests(FlubberTestCase):
             return 42
         def waiter():
             f = self.loop.run_in_executor(None, func)
-            self.assertEqual(f.result(), 42)
+            self.assertEqual(f.get(), 42)
         flubber.spawn(waiter)
         self.loop.run()
 
@@ -25,7 +25,7 @@ class FuturesTests(FlubberTestCase):
             1/0
         def waiter():
             f = self.loop.run_in_executor(None, func)
-            self.assertRaises(ZeroDivisionError, f.result)
+            self.assertRaises(ZeroDivisionError, f.get)
         flubber.spawn(waiter)
         self.loop.run()
 
@@ -35,7 +35,7 @@ class FuturesTests(FlubberTestCase):
             return 42
         def waiter():
             f = executor.submit(func)
-            self.assertEqual(f.result(), 42)
+            self.assertEqual(f.get(), 42)
         flubber.spawn(waiter)
         self.loop.run()
 
@@ -47,7 +47,7 @@ class FuturesTests(FlubberTestCase):
             return 42
         def waiter():
             f = executor.submit(func)
-            self.assertEqual(f.result(), 42)
+            self.assertEqual(f.get(), 42)
         flubber.spawn(waiter)
         self.loop.run()
 
@@ -55,7 +55,7 @@ class FuturesTests(FlubberTestCase):
         executor = futures.ProcessPoolExecutor(5)
         def waiter():
             f = executor.submit(dummy)
-            self.assertEqual(f.result(), 42)
+            self.assertEqual(f.get(), 42)
         flubber.spawn(waiter)
         self.loop.run()
 
@@ -65,7 +65,7 @@ class FuturesTests(FlubberTestCase):
         def waiter():
             with futures.TaskPoolExecutor(5) as e:
                 f = e.submit(func)
-                self.assertEqual(f.result(), 42)
+                self.assertEqual(f.get(), 42)
         flubber.spawn(waiter)
         self.loop.run()
 
@@ -77,7 +77,7 @@ class FuturesTests(FlubberTestCase):
             f = self.loop.run_in_executor(None, func)
             done, not_done = futures.wait([f])
             self.assertTrue(f in done)
-            self.assertEqual(f.result(), 42)
+            self.assertEqual(f.get(), 42)
         flubber.spawn(waiter)
         self.loop.run()
 
@@ -90,8 +90,8 @@ class FuturesTests(FlubberTestCase):
             f2 = self.loop.run_in_executor(None, func)
             done, not_done = futures.wait([f1, f2])
             self.assertTrue(f1 in done and f2 in done)
-            self.assertEqual(f1.result(), 42)
-            self.assertEqual(f2.result(), 42)
+            self.assertEqual(f1.get(), 42)
+            self.assertEqual(f2.get(), 42)
         flubber.spawn(waiter)
         self.loop.run()
 
@@ -107,7 +107,7 @@ class FuturesTests(FlubberTestCase):
             done, not_done = futures.wait(l, return_when=futures.FIRST_COMPLETED)
             self.assertTrue(f in done)
             self.assertEqual(len(not_done), 100)
-            self.assertEqual(f.result(), 42)
+            self.assertEqual(f.get(), 42)
             self.loop.stop()
         flubber.spawn(waiter)
         self.loop.run()
@@ -125,7 +125,7 @@ class FuturesTests(FlubberTestCase):
             done, not_done = futures.wait([f1, f2, f3], return_when=futures.FIRST_EXCEPTION)
             self.assertTrue(f1 in done)
             self.assertTrue(f2 in not_done and f3 in not_done)
-            self.assertRaises(ZeroDivisionError, f1.result)
+            self.assertRaises(ZeroDivisionError, f1.get)
             self.loop.stop()
         flubber.spawn(waiter)
         self.loop.run()
@@ -137,7 +137,7 @@ class FuturesTests(FlubberTestCase):
         def waiter():
             l = [self.loop.run_in_executor(None, func, 0.001) for x in range(10)]
             for f in futures.as_completed(l):
-                self.assertEqual(f.result(), 42)
+                self.assertEqual(f.get(), 42)
         flubber.spawn(waiter)
         self.loop.run()
 
