@@ -2,6 +2,8 @@
 # This file is part of flubber. See the NOTICE for more information.
 #
 
+from time import time
+
 import flubber
 
 from flubber.timeout import Timeout
@@ -166,6 +168,22 @@ class Condition(object):
             return waiter.acquire(timeout=timeout)
         finally:
             self._acquire_restore(saved_state)
+
+    def wait_for(self, predicate, timeout=None):
+        endtime = None
+        waittime = timeout
+        result = predicate()
+        while not result:
+            if waittime is not None:
+                if endtime is None:
+                    endtime = time() + waittime
+                else:
+                    waittime = endtime - time()
+                    if waittime <= 0:
+                        break
+            self.wait(waittime)
+            result = predicate()
+        return result
 
     def notify(self, n=1):
         if not self._is_owned():
