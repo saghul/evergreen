@@ -13,7 +13,7 @@ class _Bomb(object):
 
     def __init__(self, exp_type, exp_value=None, exp_traceback=None):
         self.type = exp_type
-        self.value = exp_value
+        self.value = exp_value if exp_value is not None else exp_type()
         self.traceback = exp_traceback
 
     def raise_(self):
