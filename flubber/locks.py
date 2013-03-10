@@ -2,7 +2,10 @@
 # This file is part of flubber. See the NOTICE for more information.
 #
 
-from time import time
+try:
+    from time import monotonic as _time
+except ImportError:
+    from time import time as _time
 
 import flubber
 
@@ -176,9 +179,9 @@ class Condition(object):
         while not result:
             if waittime is not None:
                 if endtime is None:
-                    endtime = time() + waittime
+                    endtime = _time() + waittime
                 else:
-                    waittime = endtime - time()
+                    waittime = endtime - _time()
                     if waittime <= 0:
                         break
             self.wait(waittime)

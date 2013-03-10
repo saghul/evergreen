@@ -2,7 +2,10 @@
 # This file is part of flubber. See the NOTICE for more information.
 #
 
-import time
+try:
+    from time import monotonic as _time
+except ImportError:
+    from time import time as _time
 
 from flubber.event import Event
 from flubber.locks import Condition, Semaphore
@@ -193,7 +196,7 @@ def as_completed(fs, timeout=None):
             before the given timeout.
     """
     if timeout is not None:
-        end_time = timeout + time.time()
+        end_time = timeout + _time()
 
     with _AcquireFutures(fs):
         finished = set(f for f in fs if f._state in [CANCELLED_AND_NOTIFIED, FINISHED])
@@ -208,7 +211,7 @@ def as_completed(fs, timeout=None):
             if timeout is None:
                 wait_timeout = None
             else:
-                wait_timeout = end_time - time.time()
+                wait_timeout = end_time - _time()
                 if wait_timeout < 0:
                     raise TimeoutError('%d (of %d) futures unfinished' % (len(pending), len(fs)))
 
@@ -433,7 +436,7 @@ class Executor(object):
         """
         timeout = kwargs.get('timeout')
         if timeout is not None:
-            end_time = timeout + time.time()
+            end_time = timeout + _time()
 
         fs = [self.submit(fn, *args) for args in zip(*iterables)]
 
@@ -445,7 +448,7 @@ class Executor(object):
                     if timeout is None:
                         yield future.get()
                     else:
-                        yield future.get(end_time - time.time())
+                        yield future.get(end_time - _time())
             finally:
                 for future in fs:
                     future.cancel()

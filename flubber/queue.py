@@ -7,7 +7,10 @@ from __future__ import absolute_import
 import heapq
 
 from collections import deque
-from time import time as time
+try:
+    from time import monotonic as _time
+except ImportError:
+    from time import time as _time
 
 import six
 
@@ -150,9 +153,9 @@ class Queue(object):
                 elif timeout < 0:
                     raise ValueError("'timeout' must be a positive number")
                 else:
-                    endtime = time() + timeout
+                    endtime = _time() + timeout
                     while self._qsize() >= self.maxsize:
-                        remaining = endtime - time()
+                        remaining = endtime - _time()
                         if remaining <= 0.0:
                             raise Full
                         self.not_full.wait(remaining)
@@ -192,9 +195,9 @@ class Queue(object):
             elif timeout < 0:
                 raise ValueError("'timeout' must be a positive number")
             else:
-                endtime = time() + timeout
+                endtime = _time() + timeout
                 while not self._qsize():
-                    remaining = endtime - time()
+                    remaining = endtime - _time()
                     if remaining <= 0.0:
                         raise Empty
                     self.not_empty.wait(remaining)

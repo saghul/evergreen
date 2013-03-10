@@ -7,8 +7,11 @@ from __future__ import absolute_import
 import os
 import _socket
 import sys
-import time
 import warnings
+try:
+    from time import monotonic as _time
+except ImportError:
+    from time import time as _time
 
 import flubber
 import pyuv
@@ -355,13 +358,13 @@ class socket(object):
                 data_sent += self.send(_get_memory(data, data_sent), flags)
         else:
             timeleft = self.timeout
-            end = time.time() + timeleft
+            end = _time() + timeleft
             data_sent = 0
             while True:
                 data_sent += self.send(_get_memory(data, data_sent), flags, timeout=timeleft)
                 if data_sent >= len(data):
                     break
-                timeleft = end - time.time()
+                timeleft = end - _time()
                 if timeleft <= 0:
                     raise timeout('timed out')
 
