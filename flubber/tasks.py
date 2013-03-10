@@ -4,6 +4,7 @@
 
 import flubber
 
+from flubber import six
 from flubber.event import Event
 from flubber._tasklet import tasklet, get_current, TaskletExit
 
@@ -102,7 +103,7 @@ class Task(tasklet):
             # task hasn't started yet and therefore throw won't work
             def just_raise(*a, **kw):
                 if throw_args:
-                    raise throw_args[0], throw_args[1], throw_args[2]
+                    six.reraise(throw_args[0], throw_args[1], throw_args[2])
                 else:
                     raise TaskExit()
             self.run_ = just_raise
