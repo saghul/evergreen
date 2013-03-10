@@ -141,6 +141,18 @@ class FuturesTests(FlubberTestCase):
         flubber.spawn(waiter)
         self.loop.run()
 
+    def test_map(self):
+        executor = futures.TaskPoolExecutor(10)
+        def func(x):
+            return x*x
+        def waiter():
+            l1 = [2, 4, 6]
+            l2 = [4, 16, 36]
+            r = list(executor.map(func, l1))
+            self.assertEqual(r, l2)
+        flubber.spawn(waiter)
+        self.loop.run()
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
