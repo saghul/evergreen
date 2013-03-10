@@ -1,0 +1,20 @@
+# python specific
+*.pyc
+*.so
+*.pyd
+build/*
+dist/*
+MANIFEST
+__pycache__/
+.tox/
+tox.ini.local
+deps/
+docs/_build/
+
+# generic files to ignore
+*~
+*.lock
+*.DS_Store
+*.swp
+*.out
+
