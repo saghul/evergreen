@@ -13,7 +13,6 @@ on how modules are used, limited support is provided for some common modules:
 - socket
 - select
 - time
-- subprocess (broken at the moment)
 
 This module provides several functions to monkeypatch modules.
 

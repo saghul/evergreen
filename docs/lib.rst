@@ -15,7 +15,6 @@ Provided modules:
 - socket
 - select
 - time
-- subprocess (broken at the moment)
 
 ::
 
