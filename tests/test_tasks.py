@@ -73,7 +73,7 @@ class TasksTests(FlubberTestCase):
         for i in range(5):
             flubber.spawn(func, i)
         self.loop.run()
-        self.assertEqual(called, range(5))
+        self.assertEqual(called, [0, 1, 2, 3, 4])
 
     def test_custom_task(self):
         task = MyTask()
