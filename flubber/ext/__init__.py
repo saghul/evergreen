@@ -5,6 +5,8 @@
 import sys
 import os
 
+from flubber import six
+
 
 class ExtensionImporter(object):
     """This importer redirects imports from this submodule to other locations.
@@ -58,7 +60,7 @@ class ExtensionImporter(object):
                 # we swallow it and try the next choice.  The skipped frame
                 # is the one from __import__ above which we don't care about
                 if self.is_important_traceback(realname, tb):
-                    raise exc_type, exc_value, tb.tb_next
+                    six.reraise(exc_type, exc_value, tb.tb_next)
                 continue
             module = sys.modules[fullname] = sys.modules[realname]
             if '.' not in modname:

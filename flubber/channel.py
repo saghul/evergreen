@@ -56,3 +56,7 @@ class Channel(object):
     def next(self):
         return self.receive()
 
+    if six.PY3:
+        __next__ = next
+        del next
+

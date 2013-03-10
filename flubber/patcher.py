@@ -29,7 +29,7 @@ class SysModulesSaver(object):
         sys.modules.
         """
         try:
-            for modname, mod in self._saved.iteritems():
+            for modname, mod in self._saved.items():
                 if mod is not None:
                     sys.modules[modname] = mod
                 else:
@@ -92,11 +92,11 @@ def patch(**on):
     """
     accepted_args = set(('select', 'socket', 'time'))
     default_on = on.pop("all", None)
-    for k in on.iterkeys():
+    for k in on.keys():
         if k not in accepted_args:
             raise TypeError("patch() got an unexpected keyword argument %r" % k)
     if default_on is None:
-        default_on = not (True in on.values())
+        default_on = not (True in list(on.values()))
     for modname in accepted_args:
         on.setdefault(modname, default_on)
 

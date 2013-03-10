@@ -318,7 +318,7 @@ class EventLoop(object):
     def _process_ready(self, handle):
         # Run all queued callbacks
         ntodo = len(self._ready)
-        for x in xrange(ntodo):
+        for x in range(ntodo):
             handler = self._ready.popleft()
             if not handler.cancelled:
                 # loop.excepthook takes care of exception handling

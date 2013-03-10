@@ -44,7 +44,7 @@ class Semaphore(object):
             try:
                 while self._counter <= 0:
                     loop.switch()
-            except Timeout, e:
+            except Timeout as e:
                 if e is timer:
                     return False
                 raise
@@ -80,7 +80,7 @@ class BoundedSemaphore(Semaphore):
 
     def release(self):
         if self._counter >= self._initial_counter:
-            raise ValueError, "Semaphore released too many times"
+            raise ValueError("Semaphore released too many times")
         return super(BoundedSemaphore, self).release()
 
 
