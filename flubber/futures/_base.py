@@ -443,9 +443,9 @@ class Executor(object):
             try:
                 for future in fs:
                     if timeout is None:
-                        yield future.result()
+                        yield future.get()
                     else:
-                        yield future.result(end_time - time.time())
+                        yield future.get(end_time - time.time())
             finally:
                 for future in fs:
                     future.cancel()
