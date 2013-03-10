@@ -31,7 +31,7 @@ which is copperative.
 
         Return True if the call is currently being executed and cannot be cancelled.
 
-    .. py:method:: result(timeout=None)
+    .. py:method:: get(timeout=None)
 
         Return the value returned by the call. If the call hasn’t yet completed then
         this method will wait up to timeout seconds. If the call hasn’t completed in
@@ -41,17 +41,6 @@ which is copperative.
         If the future is cancelled before completing then CancelledError will be raised.
 
         If the call raised, this method will raise the same exception.
-
-    .. py:method:: exception(timeout=None)
-
-        Return the exception raised by the call. If the call hasn’t yet completed then this
-        method will wait up to timeout seconds. If the call hasn’t completed in timeout
-        seconds, then a TimeoutError will be raised. timeout can be an int or float. If
-        timeout is not specified or None, there is no limit to the wait time.
-
-        If the future is cancelled before completing then CancelledError will be raised.
-
-        If the call completed without raising, None is returned.
 
     .. py:method:: add_done_callback(func)
 
@@ -72,17 +61,17 @@ which is copperative.
     should not be used directly, but through its concrete subclasses.
 
     .. py:method:: submit(fn, \*args, \*\*kwargs)
- 
+
         Schedules the callable, *fn*, to be executed as ``fn(*args **kwargs)``
         and returns a :class:`Future` object representing the execution of the
         callable. ::
- 
+
            with ThreadPoolExecutor(max_workers=1) as executor:
                future = executor.submit(pow, 323, 1235)
                print(future.result())
- 
+
     .. py:method:: map(func, \*iterables, timeout=None)
- 
+
         Equivalent to ``map(func, *iterables)`` except *func* is executed
         asynchronously and several calls to *func* may be made concurrently.  The
         returned iterator raises a :exc:`TimeoutError` if
@@ -92,14 +81,14 @@ which is copperative.
         ``None``, there is no limit to the wait time.  If a call raises an
         exception, then that exception will be raised when its value is
         retrieved from the iterator.
- 
+
     .. py:method:: shutdown(wait=True)
- 
+
         Signal the executor that it should free any resources that it is using
         when the currently pending futures are done executing.  Calls to
         :meth:`Executor.submit` and :meth:`Executor.map` made after shutdown will
         raise :exc:`RuntimeError`.
- 
+
         If *wait* is ``True`` then this method will not return until all the
         pending futures are done executing and the resources associated with the
         executor have been freed.  If *wait* is ``False`` then this method will
@@ -107,13 +96,13 @@ which is copperative.
         freed when all pending futures are done executing.  Regardless of the
         value of *wait*, the entire Python program will not exit until all
         pending futures are done executing.
- 
+
         You can avoid having to call this method explicitly if you use the
         `with` statement, which will shutdown the :class:`Executor`
         (waiting as if :meth:`Executor.shutdown` were called with *wait* set to ``True``)
- 
+
         ::
- 
+
            import shutil
            with ThreadPoolExecutor(max_workers=4) as e:
                e.submit(shutil.copy, 'src1.txt', 'dest1.txt')
@@ -141,14 +130,14 @@ which is copperative.
     2-tuple of sets.  The first set, named ``done``, contains the futures that
     completed (finished or were cancelled) before the wait completed.  The second
     set, named ``not_done``, contains uncompleted futures.
- 
+
     *timeout* can be used to control the maximum number of seconds to wait before
     returning.  *timeout* can be an int or float.  If *timeout* is not specified
     or ``None``, there is no limit to the wait time.
- 
+
     *return_when* indicates when this function should return.  It must be one of
     the following constants:
- 
+
     +-----------------------------+----------------------------------------+
     | Constant                    | Description                            |
     +=============================+========================================+
@@ -186,4 +175,16 @@ Exceptions
 
 
 .. py:exception:: TimeoutError
+
+
+Future class API changes
+------------------------
+
+The future class in this module doesn't conform 100% to the API exposed
+by the equivalent class in the `concurrent.futures` module from the
+standard library, though they are pretty minor. Here is the list of changes:
+
+- `cancelled`, `done` and `running` are properties, not functions
+- `result` function is called `get`
+- there is no `exception` function
 
