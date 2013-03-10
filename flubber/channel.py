@@ -2,8 +2,7 @@
 # This file is part of flubber. See the NOTICE for more information.
 #
 
-import six
-
+from flubber import six
 from flubber.event import Event
 from flubber.locks import Semaphore
 

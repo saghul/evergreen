@@ -12,16 +12,10 @@ try:
 except ImportError:
     from time import time as _time
 
-import six
-
 from flubber.locks import Semaphore, Condition
+from flubber.six.moves import queue as __queue__
 
 __all__ = ['Empty', 'Full', 'Queue', 'PriorityQueue', 'LifoQueue']
-
-if six.PY3:
-    import queue as __queue__
-else:
-    import Queue as __queue__
 
 Empty = __queue__.Empty
 Full = __queue__.Full

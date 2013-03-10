@@ -8,14 +8,8 @@ import weakref
 import sys
 
 import flubber
-import six
-
-if six.PY3:
-    import queue
-else:
-    import Queue as queue
-
 from flubber.futures._base import Executor, Future
+from flubber.six.moves import queue
 
 
 # Workers are created as daemon threads. This is done to allow the interpreter

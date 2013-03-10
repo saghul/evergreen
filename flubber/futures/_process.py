@@ -50,14 +50,8 @@ import weakref
 import sys
 
 import flubber
-import six
-
-if six.PY3:
-    import queue
-else:
-    import Queue as queue
-
 from flubber.futures._base import Executor, Future
+from flubber.six.moves import queue
 
 
 __author__ = 'Brian Quinlan (brian@sweetapp.com)'
