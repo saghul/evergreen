@@ -390,3 +390,12 @@ _add_doc(reraise, """Reraise an exception.""")
 def with_metaclass(meta, base=object):
     """Create a base class with a metaclass."""
     return meta("NewBase", (base,), {})
+
+
+if PY3:
+    def exc_clear():
+        pass
+else:
+    def exc_clear():
+        sys.exc_clear()
+

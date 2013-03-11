@@ -8,14 +8,14 @@ import os
 import _socket
 import sys
 import warnings
+
 try:
     from time import monotonic as _time
 except ImportError:
     from time import time as _time
 
 import flubber
-import pyuv
-
+from flubber import six
 from flubber.event import Event
 from flubber.patcher import slurp_properties
 from flubber.timeout import Timeout
@@ -47,41 +47,56 @@ __patched__ = ['fromfd', 'socketpair', 'ssl', 'socket', 'SocketType',
 slurp_properties(__socket__, globals(), ignore=__patched__, srckeys=dir(__socket__))
 del slurp_properties
 
-_realsocket = _socket.socket
-_fileobject = __socket__._fileobject
+if six.PY3:
+    from socket import socket as __socket__socket__
+
+    # for ssl.py to create weakref
+    class _realsocket(_socket.socket):
+        pass
+
+    class _fileobject:
+        def __init__(self, sock, mode='rwb', bufsize=-1, close=False):
+            super().__init__()
+            self._sock = sock
+            self._close = close
+            self._obj = __socket__socket__.makefile(sock, mode, bufsize)
+
+        @property
+        def closed(self):
+            return self._obj.closed
+
+        def __del__(self):
+            try:
+                self.close()
+            except:
+                pass
+
+        def close(self):
+            try:
+                if self._obj is not None:
+                    self._obj.close()
+                if self._sock is not None and self._close:
+                    self._sock.close()
+            finally:
+                self._sock = self._obj = None
+
+        for _name in ['fileno', 'flush', 'isatty', 'readable', 'readline',
+                      'readlines', 'seek', 'seekable', 'tell', 'truncate',
+                      'writable', 'writelines', 'read', 'write', 'readinto',
+                      'readall']:
+            exec('''def %s(self, *args, **kwargs):
+    return getattr(self._obj, '%s')(*args, **kwargs)
+''' % (_name, _name))
+        del _name
+else:
+    _fileobject = __socket__._fileobject
+    _realsocket = _socket.socket
 
 
 try:
     _GLOBAL_DEFAULT_TIMEOUT = __socket__._GLOBAL_DEFAULT_TIMEOUT
 except AttributeError:
     _GLOBAL_DEFAULT_TIMEOUT = object()
-
-try:
-    __original_fromfd__ = __socket__.fromfd
-    def fromfd(*args):
-        return socket(__original_fromfd__(*args))
-except AttributeError:
-    pass
-
-try:
-    __original_socketpair__ = __socket__.socketpair
-    def socketpair(*args):
-        one, two = __original_socketpair__(*args)
-        return socket(one), socket(two)
-except AttributeError:
-    pass
-
-try:
-    from flubber.lib import ssl as ssl_module
-    sslerror = __socket__.sslerror
-    __socket__.ssl
-    def ssl(sock, certificate=None, private_key=None):
-        warnings.warn("socket.ssl() is deprecated.  Use ssl.wrap_socket() instead.", DeprecationWarning, stacklevel=2)
-        return ssl_module.sslwrap_simple(sock, private_key, certificate)
-except Exception:
-    # if the real socket module doesn't have the ssl method or sslerror
-    # exception, we can't emulate them
-    pass
 
 
 def _get_memory(string, offset):
@@ -104,7 +119,7 @@ class _closedsocket(object):
 cancel_wait_ex = error(EBADF, 'File descriptor was closed by another task')
 
 
-class IOWaiter(object):
+class IOHandler(object):
 
     def __init__(self, fd):
         self.fd = fd
@@ -150,12 +165,9 @@ class IOWaiter(object):
             self._write_event.set()
 
     def _wait(self, event, timeout, timeout_exc):
-        with Timeout(timeout, timeout_exc) as t:
-            try:
-                event.wait()
-            except Timeout as e:
-                if e is not t:
-                    raise
+            r = event.wait(timeout)
+            if not r and timeout_exc:
+                raise timeout_exc
 
     def __repr__(self):
         return '<%s fd=%d>' % (self.__class__.__name__, self.fd)
@@ -176,8 +188,16 @@ class socket(object):
             else:
                 self._sock = _sock
                 self.timeout = _socket.getdefaulttimeout()
+        self._io_refs = 0   # for Python 3
         self._sock.setblocking(0)
-        self._io = IOWaiter(self._sock.fileno())
+        self._io = IOHandler(self._sock.fileno())
+        self._closed = False
+
+    def _decref_socketios(self):
+        if self._io_refs > 0:
+            self._io_refs -= 1
+        if self._closed:
+            self.close()
 
     def __repr__(self):
         return '<%s at %s %s>' % (type(self).__name__, hex(id(self)), self._formatinfo())
@@ -213,20 +233,33 @@ class socket(object):
         sock = self._sock
         while True:
             try:
-                client_socket, address = sock.accept()
+                if six.PY3:
+                    fd, address = sock._accept()
+                    client_socket = _realsocket(self.family, self.type, self.proto, fileno=fd)
+                else:
+                    client_socket, address = sock.accept()
                 break
             except error:
                 ex = sys.exc_info()[1]
-                if ex[0] != EWOULDBLOCK or self.timeout == 0.0:
+                if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                     raise
-                sys.exc_clear()
+                six.exc_clear()
             self._io.wait_read(timeout=self.timeout, timeout_exc=timeout('timed out'))
         return socket(_sock=client_socket), address
 
-    def close(self, _closedsocket=_closedsocket):
+    def close(self):
         # This function should not reference any globals. See Python issue #808164.
+        self._closed = True
+        if self._io_refs <= 0:
+            self._real_close()
+
+    def _real_close(_closedsocket=_closedsocket):
         self._io.close()
-        self._sock = _closedsocket()
+        try:
+            if six.PY3:
+                self._sock.close()
+        finally:
+            self._sock = _closedsocket()
 
     @property
     def closed(self):
@@ -237,7 +270,6 @@ class socket(object):
             return self._sock.connect(address)
         sock = self._sock
         if isinstance(address, tuple):
-            loop = flubber.current.loop
             r = getaddrinfo(address[0], address[1], sock.family, sock.type, sock.proto)
             address = r[0][-1]
         timer = Timeout(self.timeout, timeout('timed out'))
@@ -276,13 +308,17 @@ class socket(object):
         Note, that the new socket does not inherit the timeout."""
         return socket(_sock=self._sock)
 
-    def makefile(self, mode='r', bufsize=-1):
+    def makefile(self, mode='rwb', bufsize=-1):
         # Two things to look out for:
         # 1) Closing the original socket object should not close the
         #    socket (hence creating a new instance)
         # 2) The resulting fileobject must keep the timeout in order
         #    to be compatible with the stdlib's socket.makefile.
-        return _fileobject(type(self)(_sock=self), mode, bufsize)
+        if six.PY3:
+            sock = self
+        else:
+            sock = type(self)(_sock=self)
+        return _fileobject(sock, mode, bufsize)
 
     def recv(self, *args):
         sock = self._sock  # keeping the reference so that fd is not closed during waiting
@@ -293,8 +329,7 @@ class socket(object):
                 ex = sys.exc_info()[1]
                 if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                     raise
-                # without clearing exc_info test__refcount.test_clean_exit fails
-                sys.exc_clear()
+                six.exc_clear()
             self._io.wait_read(timeout=self.timeout, timeout_exc=timeout('timed out'))
 
     def recvfrom(self, *args):
@@ -306,7 +341,7 @@ class socket(object):
                 ex = sys.exc_info()[1]
                 if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                     raise
-                sys.exc_clear()
+                six.exc_clear()
             self._io.wait_read(timeout=self.timeout, timeout_exc=timeout('timed out'))
 
     def recvfrom_into(self, *args):
@@ -318,7 +353,7 @@ class socket(object):
                 ex = sys.exc_info()[1]
                 if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                     raise
-                sys.exc_clear()
+                six.exc_clear()
             self._io.wait_read(timeout=self.timeout, timeout_exc=timeout('timed out'))
 
     def recv_into(self, *args):
@@ -330,7 +365,7 @@ class socket(object):
                 ex = sys.exc_info()[1]
                 if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                     raise
-                sys.exc_clear()
+                six.exc_clear()
             self._io.wait_read(timeout=self.timeout, timeout_exc=timeout('timed out'))
 
     def send(self, data, flags=0):
@@ -341,7 +376,7 @@ class socket(object):
             ex = sys.exc_info()[1]
             if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                 raise
-            sys.exc_clear()
+            six.exc_clear()
             self._io.wait_write(timeout=self.timeout, timeout_exc=timeout('timed out'))
             try:
                 return sock.send(data, flags)
@@ -352,6 +387,8 @@ class socket(object):
                 raise
 
     def sendall(self, data, flags=0):
+        if isinstance(data, six.text_type):
+            data = data.encode()
         if self.timeout is None:
             data_sent = 0
             while data_sent < len(data):
@@ -376,7 +413,7 @@ class socket(object):
             ex = sys.exc_info()[1]
             if ex.args[0] != EWOULDBLOCK or timeout == 0.0:
                 raise
-            sys.exc_clear()
+            six.exc_clear()
             self._io.wait_write(timeout=self.timeout, timeout_exc=timeout('timed out'))
             try:
                 return sock.sendto(*args)
@@ -423,32 +460,44 @@ class socket(object):
 
     _s = ("def %s(self, *args): return self._sock.%s(*args)\n\n"
           "%s.__doc__ = _realsocket.%s.__doc__\n")
-    for _m in set(_socketmethods) - set(locals()):
+    for _m in set(('bind',
+                   'connect',
+                   'connect_ex',
+                   'fileno',
+                   'listen',
+                   'getpeername',
+                   'getsockname',
+                   'getsockopt',
+                   'setsockopt',
+                   'sendall',
+                   'setblocking',
+                   'settimeout',
+                   'gettimeout',
+                   'shutdown')) - set(locals()):
         exec (_s % (_m, _m, _m, _m))
     del _m, _s
 
 SocketType = socket
 
 
-def _run_in_threadpool(func, *args, **kw):
-    loop = flubber.current.loop
-    return loop._threadpool.spawn(func, *args, **kw).wait()
-
-
 def gethostbyname(*args, **kw):
-    return _run_in_threadpool(__socket__.gethostbyname, *args, **kw)
+    loop = flubber.current.loop
+    return loop._threadpool.spawn(__socket__.gethostbyname, *args, **kw).wait()
 
 
 def gethostbyname_ex(*args, **kw):
-    return _run_in_threadpool(__socket__.gethostbyname_ex, *args, **kw)
+    loop = flubber.current.loop
+    return loop._threadpool.spawn(__socket__.gethostbyname_ex, *args, **kw).wait()
 
 
 def getnameinfo(*args, **kw):
-    return _run_in_threadpool(__socket__.getnameinfo, *args, **kw)
+    loop = flubber.current.loop
+    return loop._threadpool.spawn(__socket__.getnameinfo, *args, **kw).wait()
 
 
 def getaddrinfo(*args, **kw):
-    return _run_in_threadpool(__socket__.getaddrinfo, *args, **kw)
+    loop = flubber.current.loop
+    return loop._threadpool.spawn(__socket__.getaddrinfo, *args, **kw).wait()
 
 
 def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT, source_address=None):
@@ -479,14 +528,41 @@ def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT, source_address=N
             return sock
         except error:
             err = sys.exc_info()[1]
-            # without exc_clear(), if connect() fails once, the socket is referenced by the frame in exc_info
-            # and the next bind() fails, that does not happen with regular sockets though,
-            #because _socket.socket.connect() is a built-in.
-            sys.exc_clear()
+            six.exc_clear()
             if sock is not None:
                 sock.close()
     if err is not None:
         raise err
     else:
         raise error("getaddrinfo returns an empty list")
+
+
+try:
+    __original_fromfd__ = __socket__.fromfd
+    def fromfd(*args):
+        return socket(__original_fromfd__(*args))
+except AttributeError:
+    pass
+
+
+try:
+    __original_socketpair__ = __socket__.socketpair
+    def socketpair(*args):
+        one, two = __original_socketpair__(*args)
+        return socket(one), socket(two)
+except AttributeError:
+    pass
+
+
+try:
+    from flubber.lib import ssl as ssl_module
+    sslerror = __socket__.sslerror
+    __socket__.ssl
+    def ssl(sock, certificate=None, private_key=None):
+        warnings.warn("socket.ssl() is deprecated.  Use ssl.wrap_socket() instead.", DeprecationWarning, stacklevel=2)
+        return ssl_module.sslwrap_simple(sock, private_key, certificate)
+except Exception:
+    # if the real socket module doesn't have the ssl method or sslerror
+    # exception, we can't emulate them
+    pass
 
