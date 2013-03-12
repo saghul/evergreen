@@ -81,7 +81,8 @@ class _WorkItem(object):
             e = sys.exc_info()[1]
             self.loop.call_from_thread(self.future.set_exception, e)
         finally:
-            self.handler.cancel()
+            self.loop.call_from_thread(self.handler.cancel)
+            self.loop = self.handler = None
 
     def _set_running(self):
         if not self.future.set_running_or_notify_cancel():

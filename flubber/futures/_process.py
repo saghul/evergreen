@@ -264,8 +264,9 @@ def _queue_manangement_worker(executor_reference,
                 loop.call_from_thread(work_item.future.set_exception, result_item.exception)
             else:
                 loop.call_from_thread(work_item.future.set_result, result_item.result)
-            work_item.handler.cancel()
-            del result_item, work_item, loop
+            h = work_item.handler
+            loop.call_from_thread(h.cancel)
+            del result_item, work_item, loop, h
 
 
 class ProcessPoolExecutor(Executor):
