@@ -14,6 +14,9 @@ to their autors
 Some modules (futures, queue, locks) contain code derived from the Python
 standard library.
 
+Some parts of the documentation have been taken from the standard library
+documentation.
+
 
 If your code is used in Flubber and you are not mentioned above, please contact the maintainer.
 

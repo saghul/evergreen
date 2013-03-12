@@ -15,7 +15,7 @@ manner while presenting the user a syncrhonous, blocking API.
 Features:
 
 - Cooperative multitasking
-- Cooperative synchronization primitives: locks, events, queues
+- Cooperative synchronization primitives: locks, events, queues, channels
 - concurrent.futures API compatible equivalent
 - Cooperative versions of several standard library modules
 - Ability to monkey patch standard library modules to make them
@@ -37,8 +37,8 @@ There are several ways of running the test ruite:
 
 - Use Tox to run the test suite in several virtualenvs with several interpreters
 
-  From the toplevel directory, run: ``tox -e py26,py27,py32`` this will run the test suite
-  on Python 2.6, 2.7 and 3.2 (you'll need to have them installed beforehand)
+  From the toplevel directory, run: ``tox -e py26,py27,py32, py33`` this will run the test suite
+  on Python 2.6, 2.7, 3.2 and 3.3 (you'll need to have them installed beforehand)
 
 
 Documentation
