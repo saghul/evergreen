@@ -56,7 +56,8 @@ class Handler(object):
         self._cancelled = True
 
     def __call__(self):
-        self._callback(*self._args, **self._kwargs)
+        if not self._cancelled:
+            self._callback(*self._args, **self._kwargs)
 
     def __repr__(self):
         res = '{}({}, {}, {})'.format(self.__class__.__name__, self._callback, self._args, self._kwargs)
@@ -75,8 +76,10 @@ class Timer(Handler):
 
     def cancel(self):
         super(Timer, self).cancel()
-        if self._timer_h and self._timer_h.active:
-            self._timer_h.stop()
+        if self._timer_h and not self._timer_h.closed:
+            self._timer_h.close()
+            loop = get_loop()
+            loop._timers.remove(self._timer_h)
         self._timer_h = None
 
 
@@ -381,17 +384,10 @@ class EventLoop(object):
         ntodo = len(self._ready)
         for x in range(ntodo):
             handler = self._ready.popleft()
-            if not handler.cancelled:
-                # loop.excepthook takes care of exception handling
-                handler()
+            # loop.excepthook takes care of exception handling
+            handler()
         if not self._ready:
             self._ticker.stop()
-
-        # Check timers
-        for timer in [timer for timer in self._timers if timer.handler.cancelled]:
-            timer.close()
-            self._timers.remove(timer)
-            del timer.handler
 
     def _timer_cb(self, timer):
         assert not timer.handler.cancelled
