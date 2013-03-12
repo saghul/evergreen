@@ -4,8 +4,13 @@
 
 import os
 import pyuv
-import signal
+import sys
 import traceback
+
+try:
+    import signal
+except ImportError:
+    signal= None
 
 from collections import deque
 from threading import local
@@ -75,6 +80,23 @@ class Timer(Handler):
         self._timer_h = None
 
 
+class SignalHandler(Handler):
+    __slots__ = ('_signal_h')
+
+    def __init__(self, callback, args=(), kwargs={}, signal_h=None):
+        assert signal_h is not None
+        super(SignalHandler, self).__init__(callback, args, kwargs)
+        self._signal_h = signal_h
+
+    def cancel(self):
+        super(SignalHandler, self).cancel()
+        if self._signal_h and not self._signal_h.closed:
+            self._signal_h.close()
+            loop = get_loop()
+            loop._signals[self._signal_h.signum].discard(self._signal_h)
+        self._signal_h = None
+
+
 class Ticker(pyuv.Idle):
     def tick(self, *args, **kwargs):
         if not self.active:
@@ -98,6 +120,7 @@ class EventLoop(object):
         self._started = False
 
         self._fd_map = dict()
+        self._signals = dict()
         self._timers = set()
         self._ready = deque()
 
@@ -224,6 +247,33 @@ class EventLoop(object):
                 poll_h.start(poll_h.pevents, self._poll_cb)
             return True
 
+    def add_signal_handler(self, sig, callback, *args, **kwargs):
+        self._validate_signal(sig)
+        signal_h = pyuv.Signal(self._loop)
+        handler = SignalHandler(callback, args, kwargs, signal_h)
+        signal_h.handler = handler
+        signal_h.signum = sig
+        try:
+            signal_h.start(self._signal_cb, sig)
+            signal_h.unref()
+        except Exception as e:
+            signal_h.close()
+            raise RuntimeError(str(e))
+        else:
+            self._signals.setdefault(sig, set()).add(signal_h)
+        return handler
+
+    def remove_signal_handler(self, sig):
+        self._validate_signal(sig)
+        try:
+            handles = self._signals.pop(sig)
+        except KeyError:
+            return False
+        for signal_h in handles:
+            del signal_h.handler
+            signal_h.close()
+        return True
+
     def switch(self):
         if not self._started:
             raise RuntimeError('event loop was not started, run() needs to be called first')
@@ -277,6 +327,7 @@ class EventLoop(object):
         self._waker = None
 
         self._fd_map.clear()
+        self._signals.clear()
         self._timers.clear()
         self._ready.clear()
 
@@ -350,6 +401,9 @@ class EventLoop(object):
             self._timers.remove(timer)
             del timer.handler
 
+    def _signal_cb(self, signal_h, signum):
+        self._ready.append(signal_h.handler)
+
     def _poll_cb(self, poll_h, events, error):
         fd = poll_h.fileno()
         if error is not None:
@@ -418,4 +472,14 @@ class EventLoop(object):
             self._signal_checker = None
             self._socketpair.close()
             self._socketpair = None
+
+    def _validate_signal(self, sig):
+        if not isinstance(sig, int):
+            raise TypeError('sig must be an int, not {!r}'.format(sig))
+        if signal is None:
+            raise RuntimeError('Signals are not supported')
+        if not (1 <= sig < signal.NSIG):
+            raise ValueError('sig {} out of range(1, {})'.format(sig, signal.NSIG))
+        if sys.platform == 'win32':
+            raise RuntimeError('Signals are not really supported on Windows')
 

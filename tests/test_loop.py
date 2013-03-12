@@ -2,6 +2,8 @@
 from common import dummy, unittest, FlubberTestCase
 
 import flubber
+import os
+import signal
 import threading
 import time
 
@@ -112,6 +114,79 @@ class LoopTests(FlubberTestCase):
         self.loop.run_forever()
         t.join()
         self.assertTrue(d.called)
+
+    def test_signal(self):
+        if not hasattr(signal, 'SIGALRM'):
+            self.skipTest('No signal support')
+            return
+        d = dummy()
+        d.called = False
+        def signal_cb():
+            d.called = True
+        h = self.loop.add_signal_handler(signal.SIGALRM, signal_cb)
+        signal.setitimer(signal.ITIMER_REAL, 0.1, 0)  # Send SIGALRM once
+        self.loop.call_later(0.15, self.loop.stop)
+        self.loop.run_forever()
+        self.assertTrue(d.called)
+
+    def test_signal_multi(self):
+        if not hasattr(signal, 'SIGALRM'):
+            self.skipTest('No signal support')
+            return
+        d = dummy()
+        d.called1 = False
+        d.called2 = False
+        def signal_cb1():
+            d.called1 = True
+        def signal_cb2():
+            d.called2 = True
+        h1 = self.loop.add_signal_handler(signal.SIGALRM, signal_cb1)
+        h2 = self.loop.add_signal_handler(signal.SIGALRM, signal_cb2)
+        signal.setitimer(signal.ITIMER_REAL, 0.1, 0)  # Send SIGALRM once
+        self.loop.call_later(0.15, self.loop.stop)
+        self.loop.run_forever()
+        self.assertTrue(d.called1)
+        self.assertTrue(d.called2)
+
+    def test_signal_cancel(self):
+        if not hasattr(signal, 'SIGALRM'):
+            self.skipTest('No signal support')
+            return
+        d = dummy()
+        d.called1 = False
+        d.called2 = False
+        def signal_cb1():
+            d.called1 = True
+        def signal_cb2():
+            d.called2 = True
+        h1 = self.loop.add_signal_handler(signal.SIGALRM, signal_cb1)
+        h2 = self.loop.add_signal_handler(signal.SIGALRM, signal_cb2)
+        h2.cancel()
+        signal.setitimer(signal.ITIMER_REAL, 0.1, 0)  # Send SIGALRM once
+        self.loop.call_later(0.15, self.loop.stop)
+        self.loop.run_forever()
+        self.assertTrue(d.called1)
+        self.assertFalse(d.called2)
+
+    def test_signal_remove(self):
+        if not hasattr(signal, 'SIGALRM'):
+            self.skipTest('No signal support')
+            return
+        d = dummy()
+        d.called1 = False
+        d.called2 = False
+        def signal_cb1():
+            d.called1 = True
+        def signal_cb2():
+            d.called2 = True
+        h1 = self.loop.add_signal_handler(signal.SIGALRM, signal_cb1)
+        self.loop.remove_signal_handler(signal.SIGALRM)
+        h2 = self.loop.add_signal_handler(signal.SIGALRM, signal_cb2)
+        signal.setitimer(signal.ITIMER_REAL, 0.1, 0)  # Send SIGALRM once
+        self.loop.call_later(0.15, self.loop.stop)
+        self.loop.run_forever()
+        self.assertFalse(d.called1)
+        self.assertTrue(d.called2)
 
 
 if __name__ == '__main__':
