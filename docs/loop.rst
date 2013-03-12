@@ -83,13 +83,21 @@ based callback scheduling.
         .. note::
             Once the loop has been stopped it cannot be started again.
 
+    .. py:method:: run_forever
+
+        Similar to `run` but it will not stop be stopped automatically even if
+        all tasks are finished. The loop will be stopped when `stop()` is called.
+        Useful for long running processes such as servers.
+
     .. py:method:: stop
 
-        Stop the event loop. It's not necessary to call stop in order
-        for `run` to return because it will return once there is no more
-        work to do. However, in certain cases like fatal failures it may
-        be appropriate to prematurely stop running the loop, this function
-        can be used in those cases.
+        Stop the event loop.
+
+    .. py:method:: destroy
+
+        Free all resources associated with an event loop. The thread local
+        storage is also emptied, so after destroying a loop a new one can be created
+        on the same thread.
 
 
 .. py:class:: Handler
