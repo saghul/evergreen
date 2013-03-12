@@ -17,32 +17,14 @@ def _check_ip_family(address, family):
     return True
 
 
-def connect(endpoint, source_address=None):
+def connect(endpoint, timeout=socket._GLOBAL_DEFAULT_TIMEOUT, source_address=None):
     proto, _, netloc = endpoint.partition(':')
     proto = proto.lower()
     if proto in ('tcp', 'udp'):
         host, port = netloc.split(':')
         if not port.isdigit():
             raise ValueError('invalid port specified: %s' % port)
-        err = None
-        sock_type = socket.SOCK_STREAM if proto=='tcp' else socket.SOCK_DGRAM
-        for res in socket.getaddrinfo(host, port, 0, sock_type):
-            af, socktype, proto, canonname, sa = res
-            sock = None
-            try:
-                sock = socket.socket(af, socktype, proto)
-                if source_address:
-                    sock.bind(source_address)
-                sock.connect(sa)
-                return sock
-            except socket.error as _:
-                err = _
-                if sock is not None:
-                    sock.close()
-        if err is not None:
-            raise err
-        else:
-            raise socket.error("getaddrinfo returns an empty list")
+        return socket.create_connection((host, port), timeout, source_address)
     elif proto == 'unix':
         addr = netloc
         sock = socket.socket(socket.AF_UNIX)
