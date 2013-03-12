@@ -71,6 +71,16 @@ based callback scheduling.
         Remove the write handler for the given file descriptor. Returns a `Handler`
         instance which can be used to cancel the operation.
 
+    .. py:method:: add_signal_handler(signum, callback, \*args, \*\*kw)
+
+        Create a handler which will run the given callback when the specified
+        signal is captured. Multiple handlders for the same signal can be added.
+        If the handler is cancelled, only *that* particular handler is removed.
+
+    .. py:method:: remove_signal_handler(signum)
+
+        Remove all handlers for the specified signal.
+
     .. py:method:: switch
 
         Switch task execution to the loop's main task.
@@ -114,6 +124,11 @@ based callback scheduling.
         Cancels the handle, preventing its callback from being executed,
         if it wasn't executed yet.
 
+        .. warning::
+            Like every API method other than `EventLoop.call_from_thread`, this
+            function is not thread safe, it must be called from the event loop
+            thread.
+
 
 Finding the 'current loop'
 --------------------------
@@ -127,4 +142,13 @@ running in the current thread:
 
 If a loop was not explicitly created in the current thread :exc:`RuntimeError`
 is raised.
+
+
+Handling signals
+----------------
+
+While the `signal` module works just fine, it's better to use the signal handling
+functions provided by the `EventLoop`. It allows adding multiple handlers for the
+same signal, from different threads and the handlers are called in the approriate
+thread (where they were added from).
 
