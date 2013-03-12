@@ -61,17 +61,18 @@ class Handler(object):
 
 
 class Timer(Handler):
-    __slots__ = ('_timer')
+    __slots__ = ('_timer_h')
 
     def __init__(self, callback, args=(), kwargs={}, timer=None):
+        assert timer is not None
         super(Timer, self).__init__(callback, args, kwargs)
-        self._timer = timer
+        self._timer_h = timer
 
     def cancel(self):
         super(Timer, self).cancel()
-        if self._timer and self._timer.active:
-            self._timer.stop()
-        self._timer = None
+        if self._timer_h and self._timer_h.active:
+            self._timer_h.stop()
+        self._timer_h = None
 
 
 class Ticker(pyuv.Idle):
