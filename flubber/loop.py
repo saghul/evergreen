@@ -241,18 +241,10 @@ class EventLoop(object):
         raise RuntimeError('Cannot switch to MAIN from MAIN')
 
     def run(self):
-        current = get_current()
-        if current is not self.tasklet.parent:
-            raise RuntimeError('run() can only be called from MAIN tasklet')
-        if self.tasklet.dead:
-            raise RuntimeError('event loop has already ended')
-        if self._started:
-            raise RuntimeError('event loop was already started')
-        self._started = True
-        try:
-            self.tasklet.switch()
-        finally:
-            self._destroy()
+        self._run(forever=False)
+
+    def run_forever(self):
+        self._run(forever=True)
 
     def stop(self):
         if not self._started:
@@ -260,9 +252,7 @@ class EventLoop(object):
         if self._loop:
             self._loop.stop()
 
-    # internal
-
-    def _destroy(self):
+    def destroy(self):
         global _tls
         try:
             loop = _tls.loop
@@ -289,6 +279,8 @@ class EventLoop(object):
         self._timers.clear()
         self._ready.clear()
 
+    # internal
+
     def _handle_error(self, typ, value, tb):
         if not issubclass(typ, (TaskletExit, SystemExit)):
             traceback.print_exception(typ, value, tb)
@@ -297,8 +289,25 @@ class EventLoop(object):
             assert current is self.tasklet
             self.tasklet.parent.throw(typ, value)
 
-    def _run_loop(self):
-        self._loop.run(pyuv.UV_RUN_DEFAULT)
+    def _run(self, forever):
+        current = get_current()
+        if current is not self.tasklet.parent:
+            raise RuntimeError('run() can only be called from MAIN tasklet')
+        if self.tasklet.dead:
+            raise RuntimeError('event loop has already ended')
+        if self._started:
+            raise RuntimeError('event loop was already started')
+        self._started = True
+        self.tasklet.switch(forever=forever)
+
+    def _run_loop(self, forever=False):
+        if forever:
+            handler = self.call_repeatedly(24*3600, lambda: None)
+        try:
+            self._loop.run(pyuv.UV_RUN_DEFAULT)
+        finally:
+            if forever:
+                handler.cancel()
 
     def _cleanup_loop(self):
         def cb(handle):

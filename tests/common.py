@@ -23,6 +23,6 @@ class FlubberTestCase(unittest.TestCase):
         self.loop = flubber.EventLoop()
 
     def tearDown(self):
-        self.loop._destroy()
+        self.loop.destroy()
         self.loop = None
 

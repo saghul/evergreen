@@ -14,7 +14,7 @@ class TLSTest(unittest.TestCase):
     def test_make_loop(self):
         loop = flubber.EventLoop()
         self.assertTrue(flubber.current.loop is loop)
-        loop._destroy()
+        loop.destroy()
         self.assertRaises(RuntimeError, lambda: flubber.current.loop)
 
 
@@ -96,6 +96,22 @@ class LoopTests(FlubberTestCase):
             self.assertNotEqual(r.wait(), tid)
         flubber.spawn(func)
         self.loop.run()
+
+    def test_run_forever(self):
+        d = dummy()
+        d.called = False
+        def stop_loop():
+            d.called = True
+            self.loop.stop()
+        def func():
+            import time
+            time.sleep(0.2)
+            self.loop.call_from_thread(stop_loop)
+        t = threading.Thread(target=func)
+        t.start()
+        self.loop.run_forever()
+        t.join()
+        self.assertTrue(d.called)
 
 
 if __name__ == '__main__':
