@@ -243,6 +243,7 @@ class socket(object):
                 ex = sys.exc_info()[1]
                 if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                     raise
+                del ex
                 six.exc_clear()
             self._io.wait_read(timeout=self.timeout, timeout_exc=timeout('timed out'))
         return socket(_sock=client_socket), address
@@ -329,6 +330,7 @@ class socket(object):
                 ex = sys.exc_info()[1]
                 if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                     raise
+                del ex
                 six.exc_clear()
             self._io.wait_read(timeout=self.timeout, timeout_exc=timeout('timed out'))
 
@@ -341,6 +343,7 @@ class socket(object):
                 ex = sys.exc_info()[1]
                 if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                     raise
+                del ex
                 six.exc_clear()
             self._io.wait_read(timeout=self.timeout, timeout_exc=timeout('timed out'))
 
@@ -353,6 +356,7 @@ class socket(object):
                 ex = sys.exc_info()[1]
                 if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                     raise
+                del ex
                 six.exc_clear()
             self._io.wait_read(timeout=self.timeout, timeout_exc=timeout('timed out'))
 
@@ -365,6 +369,7 @@ class socket(object):
                 ex = sys.exc_info()[1]
                 if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                     raise
+                del ex
                 six.exc_clear()
             self._io.wait_read(timeout=self.timeout, timeout_exc=timeout('timed out'))
 
@@ -376,13 +381,14 @@ class socket(object):
             ex = sys.exc_info()[1]
             if ex.args[0] != EWOULDBLOCK or self.timeout == 0.0:
                 raise
+            del ex
             six.exc_clear()
             self._io.wait_write(timeout=self.timeout, timeout_exc=timeout('timed out'))
             try:
                 return sock.send(data, flags)
             except error:
-                ex2 = sys.exc_info()[1]
-                if ex2.args[0] == EWOULDBLOCK:
+                ex = sys.exc_info()[1]
+                if ex.args[0] == EWOULDBLOCK:
                     return 0
                 raise
 
@@ -413,13 +419,14 @@ class socket(object):
             ex = sys.exc_info()[1]
             if ex.args[0] != EWOULDBLOCK or timeout == 0.0:
                 raise
+            del ex
             six.exc_clear()
             self._io.wait_write(timeout=self.timeout, timeout_exc=timeout('timed out'))
             try:
                 return sock.sendto(*args)
             except error:
-                ex2 = sys.exc_info()[1]
-                if ex2.args[0] == EWOULDBLOCK:
+                ex = sys.exc_info()[1]
+                if ex.args[0] == EWOULDBLOCK:
                     return 0
                 raise
 
