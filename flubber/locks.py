@@ -22,13 +22,6 @@ class Semaphore(object):
         self._counter = value
         self._waiters = set()
 
-    def __repr__(self):
-        params = (self.__class__.__name__, hex(id(self)),
-                  self._counter, len(self._waiters))
-        return '<%s at %s c=%s _w[%s]>' % params
-
-    __str__ = __repr__
-
     def acquire(self, blocking=True, timeout=None):
         if self._counter > 0:
             self._counter -= 1
