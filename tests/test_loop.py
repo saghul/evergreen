@@ -64,6 +64,18 @@ class LoopTests(FlubberTestCase):
         self.loop.run()
         self.assertFalse(d.called)
 
+    def test_call_later_cancel2(self):
+        d = dummy()
+        d.called = False
+        def func1():
+            h2.cancel()
+        def func2():
+            d.called = True
+        h1 =  self.loop.call_later(0.01, func1)
+        h2 =  self.loop.call_later(0.01, func2)
+        self.loop.run()
+        self.assertFalse(d.called)
+
     def test_call_repeatedly(self):
         d = dummy()
         d.counter = 0
