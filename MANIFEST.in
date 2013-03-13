@@ -1,6 +1,9 @@
 include MANIFEST.in README.rst LICENSE NOTICE
-include setup.py
+include setup.py tox.ini
+recursive-include examples *
 recursive-include docs *
 recursive-include tests *
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
 prune docs/_build
 
