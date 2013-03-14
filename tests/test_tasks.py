@@ -43,6 +43,19 @@ class TasksTests(FlubberTestCase):
         self.loop.run()
         self.assertFalse(d.called)
 
+    def test_spawn_kill_join(self):
+        d = dummy()
+        d.called = False
+        def func1():
+            d.called = True
+        def func2():
+            self.assertTrue(t1.join())
+        t1 = flubber.spawn(func1)
+        t1.kill()
+        t2 = flubber.spawn(func2)
+        self.loop.run()
+        self.assertFalse(d.called)
+
     def test_task_decorator(self):
         d = dummy()
         d.called = False

@@ -102,10 +102,13 @@ class Task(tasklet):
         if not self:
             # task hasn't started yet and therefore throw won't work
             def just_raise(*a, **kw):
-                if throw_args:
-                    six.reraise(throw_args[0], throw_args[1], throw_args[2])
-                else:
-                    raise TaskExit()
+                try:
+                    if throw_args:
+                        six.reraise(throw_args[0], throw_args[1], throw_args[2])
+                    else:
+                        raise TaskExit()
+                finally:
+                    self._exit_event.set()
             self.run_ = just_raise
             return
         flubber.current.loop.call_soon(self.throw, *throw_args)
