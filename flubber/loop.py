@@ -281,6 +281,7 @@ class EventLoop(object):
         if not self._started:
             raise RuntimeError('event loop was not started, run() needs to be called first')
         current = get_current()
+        assert current is not self.tasklet, 'Cannot switch to MAIN from MAIN'
         switch_out = getattr(current, 'switch_out', None)
         if switch_out is not None:
             switch_out()
@@ -290,9 +291,6 @@ class EventLoop(object):
         except ValueError:
             pass  # gets raised if there is a tasklet parent cycle
         return self.tasklet.switch()
-
-    def switch_out(self):
-        raise RuntimeError('Cannot switch to MAIN from MAIN')
 
     def run(self):
         self._run(forever=False)
