@@ -282,9 +282,6 @@ class EventLoop(object):
             raise RuntimeError('event loop was not started, run() needs to be called first')
         current = get_current()
         assert current is not self.tasklet, 'Cannot switch to MAIN from MAIN'
-        switch_out = getattr(current, 'switch_out', None)
-        if switch_out is not None:
-            switch_out()
         try:
             if self.tasklet.parent is not current:
                 current.parent = self.tasklet
