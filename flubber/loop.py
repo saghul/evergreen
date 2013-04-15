@@ -77,8 +77,8 @@ class Timer(Handler):
     def cancel(self):
         super(Timer, self).cancel()
         if self._timer_h and not self._timer_h.closed:
+            loop = self._signal_h.loop.event_loop
             self._timer_h.close()
-            loop = get_loop()
             loop._timers.remove(self._timer_h)
         self._timer_h = None
 
@@ -94,8 +94,8 @@ class SignalHandler(Handler):
     def cancel(self):
         super(SignalHandler, self).cancel()
         if self._signal_h and not self._signal_h.closed:
+            loop = self._signal_h.loop.event_loop
             self._signal_h.close()
-            loop = get_loop()
             loop._signals[self._signal_h.signum].discard(self._signal_h)
         self._signal_h = None
 
@@ -116,6 +116,7 @@ class EventLoop(object):
         _tls.loop = self
         self._loop = pyuv.Loop()
         self._loop.excepthook = self._handle_error
+        self._loop.event_loop = self
         self._default_executor = None
         self._threadpool = ThreadPool(self)
         self.tasklet = tasklet(self._run_loop)
@@ -315,6 +316,7 @@ class EventLoop(object):
         self._uninstall_signal_checker()
 
         self._cleanup_loop()
+        self._loop.event_loop = None
         self._loop.excepthook = None
         self._loop = None
         self._default_executor = None
