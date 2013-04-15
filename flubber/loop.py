@@ -5,6 +5,7 @@
 import os
 import pyuv
 import sys
+import threading
 import traceback
 
 try:
@@ -13,7 +14,6 @@ except ImportError:
     signal= None
 
 from collections import deque
-from threading import local
 
 from flubber.futures import TaskPoolExecutor
 from flubber._socketpair import SocketPair
@@ -23,7 +23,7 @@ from flubber._threadpool import ThreadPool
 __all__ = ['EventLoop']
 
 
-_tls = local()
+_tls = threading.local()
 
 
 def _noop(*args, **kwargs):
@@ -36,6 +36,10 @@ def get_loop():
     try:
         return _tls.loop
     except AttributeError:
+        # create loop only for main thread
+        if threading.current_thread().name == 'MainThread':
+            _tls.loop = EventLoop()
+            return _tls.loop
         raise RuntimeError('there is no event loop created in the current thread')
 
 
