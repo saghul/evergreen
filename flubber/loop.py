@@ -280,7 +280,8 @@ class EventLoop(object):
 
     def switch(self):
         if not self._started:
-            raise RuntimeError('event loop was not started, run() needs to be called first')
+            self._run(forever=False)
+            return
         current = get_current()
         assert current is not self.tasklet, 'Cannot switch to MAIN from MAIN'
         try:
