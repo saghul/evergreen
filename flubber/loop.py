@@ -77,7 +77,7 @@ class Timer(Handler):
     def cancel(self):
         super(Timer, self).cancel()
         if self._timer_h and not self._timer_h.closed:
-            loop = self._signal_h.loop.event_loop
+            loop = self._timer_h.loop.event_loop
             self._timer_h.close()
             loop._timers.remove(self._timer_h)
         self._timer_h = None
