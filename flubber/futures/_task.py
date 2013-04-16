@@ -5,7 +5,7 @@
 import sys
 
 from flubber.futures._base import Executor, Future
-from flubber.locks import Semaphore
+from flubber.locks import Lock
 from flubber.queue import Queue
 from flubber.tasks import Task
 
@@ -35,7 +35,7 @@ class TaskPoolExecutor(Executor):
         self._tasks = set()
         self._work_queue = Queue()
         self._shutdown = False
-        self._shutdown_lock = Semaphore(1)
+        self._shutdown_lock = Lock()
 
     def submit(self, fn, *args, **kwargs):
         with self._shutdown_lock:

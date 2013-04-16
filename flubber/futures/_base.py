@@ -8,7 +8,7 @@ except ImportError:
     from time import time as _time
 
 from flubber.event import Event
-from flubber.locks import Condition, Semaphore
+from flubber.locks import Condition, Lock
 
 
 FIRST_COMPLETED = 'FIRST_COMPLETED'
@@ -78,7 +78,7 @@ class _AsCompletedWaiter(_Waiter):
 
     def __init__(self):
         super(_AsCompletedWaiter, self).__init__()
-        self.lock = Semaphore(1)
+        self.lock = Lock()
 
     def add_result(self, future):
         with self.lock:
@@ -118,7 +118,7 @@ class _AllCompletedWaiter(_Waiter):
     def __init__(self, num_pending_calls, stop_on_exception):
         self.num_pending_calls = num_pending_calls
         self.stop_on_exception = stop_on_exception
-        self.lock = Semaphore(1)
+        self.lock = Lock()
         super(_AllCompletedWaiter, self).__init__()
 
     def _decrement_pending_calls(self):

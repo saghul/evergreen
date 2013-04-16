@@ -4,7 +4,7 @@
 
 from flubber import six
 from flubber.event import Event
-from flubber.locks import Semaphore
+from flubber.locks import Lock
 
 __all__ = ['Channel']
 
@@ -23,8 +23,8 @@ class _Bomb(object):
 class Channel(object):
 
     def __init__(self):
-        self._send_lock = Semaphore(1)
-        self._recv_lock = Semaphore(1)
+        self._send_lock = Lock()
+        self._recv_lock = Lock()
         self._new_data = Event()
         self._recv_data = Event()
         self._data = None

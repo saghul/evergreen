@@ -4,13 +4,13 @@
 
 __all__ = ['Event']
 
-from flubber.locks import Condition, Semaphore
+from flubber.locks import Condition, Lock
 
 
 class Event(object):
 
     def __init__(self):
-        self._cond = Condition(Semaphore(1))
+        self._cond = Condition(Lock())
         self._flag = False
 
     def is_set(self):

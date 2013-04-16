@@ -12,7 +12,7 @@ try:
 except ImportError:
     from time import time as _time
 
-from flubber.locks import Semaphore, Condition
+from flubber.locks import Condition, Lock
 from flubber.six.moves import queue as __queue__
 
 __all__ = ['Empty', 'Full', 'Queue', 'PriorityQueue', 'LifoQueue']
@@ -33,7 +33,7 @@ class Queue(object):
         # that acquire mutex must release it before returning.  mutex
         # is shared between the three conditions, so acquiring and
         # releasing the conditions also acquires and releases mutex.
-        self.mutex = Semaphore()
+        self.mutex = Lock()
         # Notify not_empty whenever an item is added to the queue; a
         # task waiting to get is notified then.
         self.not_empty = Condition(self.mutex)
