@@ -11,7 +11,7 @@ import flubber
 
 from flubber.timeout import Timeout
 
-__all__ = ['Semaphore', 'BoundedSemaphore', 'RLock', 'Condition']
+__all__ = ['Semaphore', 'BoundedSemaphore', 'Lock', 'RLock', 'Condition']
 
 
 class Semaphore(object):
@@ -75,6 +75,12 @@ class BoundedSemaphore(Semaphore):
         if self._counter >= self._initial_counter:
             raise ValueError("Semaphore released too many times")
         return super(BoundedSemaphore, self).release()
+
+
+class Lock(Semaphore):
+
+    def __init__(self):
+        super(Lock, self).__init__(value=1)
 
 
 class RLock(object):
