@@ -23,7 +23,7 @@ Modules
     pool
     timeout
     futures
-    net
+    io
     patcher
     ext
     lib
