@@ -11,13 +11,14 @@ import time
 class TLSTest(unittest.TestCase):
 
     def test_no_noop(self):
-        self.assertRaises(RuntimeError, lambda: flubber.current.loop)
+        loop = flubber.current.loop
+        self.assertTrue(loop)
+        loop.destroy()
 
     def test_make_loop(self):
         loop = flubber.EventLoop()
         self.assertTrue(flubber.current.loop is loop)
         loop.destroy()
-        self.assertRaises(RuntimeError, lambda: flubber.current.loop)
 
 
 class LoopTests(FlubberTestCase):
