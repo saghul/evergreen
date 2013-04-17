@@ -254,7 +254,7 @@ class socket(object):
         if self._io_refs <= 0:
             self._real_close()
 
-    def _real_close(_closedsocket=_closedsocket):
+    def _real_close(self, _closedsocket=_closedsocket):
         self._io.close()
         try:
             if six.PY3:
