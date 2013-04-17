@@ -2,8 +2,6 @@
 # This file is part of flubber. See the NOTICE for more information.
 #
 
-import sys
-
 from flubber.futures._base import Executor, Future
 from flubber.locks import Lock
 from flubber.queue import Queue
@@ -22,8 +20,8 @@ class _WorkItem(object):
             return
         try:
             result = self.fn(*self.args, **self.kwargs)
-        except BaseException:
-            self.future.set_exception(sys.exc_info()[1])
+        except BaseException as e:
+            self.future.set_exception(e)
         else:
             self.future.set_result(result)
 

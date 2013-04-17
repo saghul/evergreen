@@ -47,7 +47,6 @@ import atexit
 import multiprocessing
 import threading
 import weakref
-import sys
 
 import flubber
 from flubber.futures._base import Executor, Future
@@ -162,8 +161,7 @@ def _process_worker(call_queue, result_queue, shutdown):
         else:
             try:
                 r = call_item()
-            except BaseException:
-                e = sys.exc_info()[1]
+            except BaseException as e:
                 result_queue.put(_ResultItem(call_item.work_id, exception=e))
             else:
                 result_queue.put(_ResultItem(call_item.work_id, result=r))

@@ -5,7 +5,6 @@
 import atexit
 import threading
 import weakref
-import sys
 
 import flubber
 from flubber.futures._base import Executor, Future
@@ -77,8 +76,7 @@ class _WorkItem(object):
         try:
             r = self.fn(*self.args, **self.kwargs)
             self.loop.call_from_thread(self.future.set_result, r)
-        except BaseException:
-            e = sys.exc_info()[1]
+        except BaseException as e:
             self.loop.call_from_thread(self.future.set_exception, e)
         finally:
             self.loop.call_from_thread(self.handler.cancel)
