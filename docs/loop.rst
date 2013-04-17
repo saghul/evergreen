@@ -13,7 +13,8 @@ based callback scheduling.
 
     This is the main class that sets things in motion in flubber. I runs scheduled tasks,
     timers and i/o operations. Only one event loop may exist per thread and it needs to be
-    explicitly created. The current loop can be accessed with `flubber.current.loop`.
+    explicitly created for threads other than the main thread.
+    The current loop can be accessed with `flubber.current.loop`.
 
     .. py:attribute:: DEFAULT_EXECUTOR_WORKERS
 
@@ -83,7 +84,8 @@ based callback scheduling.
 
     .. py:method:: switch
 
-        Switch task execution to the loop's main task.
+        Switch task execution to the loop's main task. If the loop wasn't started yet
+        it will be started at this point.
 
     .. py:method:: run
 

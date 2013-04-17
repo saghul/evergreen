@@ -13,8 +13,8 @@ are different:
   in threading
 - Task scheduling has to be predictable and consistent,
   but without being exposed to the user
-- The event loop (or hub or reactor) must be explicitly
-  created
+- The event loop (or hub or reactor) is a first class citizen
+  and it's not hidden
 
 
 Event loop
@@ -26,8 +26,8 @@ by PEP 3156, so it's possible that in the future the event loop implementation f
 uses can be replaced. At the moment flubber uses `puyv <https://github.com/saghul/pyuv>`_
 as the underlying event loop.
 
-In flubber only one loop may exist per thread, but it has to be manually created and
-run. This would be the structure of a normal program using flubber:
+In flubber only one loop may exist per thread and it has to be manually created for threads
+other than the main thread. This would be the structure of a normal program using flubber:
 
 ::
 
@@ -43,8 +43,11 @@ run. This would be the structure of a normal program using flubber:
     loop.run()
 
 
-No tasks will start working until `loop.run` is called, and the loop is automatically
-destroyed once it's execution ends, that is, when `run` returns.
+No tasks will start working until `loop.run` is called unless ablocking operation is performed,
+in which case the loop is automatically started. For long running processes such as servers, it's
+advised to explicitly create the event loop, setup tasks and manually run it. Small scripts can
+rely on the fact that the main thread's loop is automatically created and run when an opperation
+cooperatively blocks.
 
 
 Tasks
