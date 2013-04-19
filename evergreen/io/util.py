@@ -4,10 +4,10 @@
 
 import errno
 import pyuv
-import six
 
 from collections import deque
 
+from evergreen import six
 from evergreen.event import Event
 
 __all__ = ['ReadBuffer', 'Result', 'convert_errno']
