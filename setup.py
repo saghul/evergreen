@@ -1,18 +1,21 @@
 # coding=utf8
 
+import re
 from distutils.core import setup
-from evergreen import __version__
 
+
+def get_version():
+    return re.search(r"""__version__\s+=\s+(?P<quote>['"])(?P<version>.+?)(?P=quote)""", open('evergreen/__init__.py').read()).group('version')
 
 setup(name             = "evergreen",
-      version          = __version__,
+      version          = get_version(),
       author           = "Saúl Ibarra Corretgé",
       author_email     = "saghul@gmail.com",
       url              = "http://github.com/saghul/evergreen",
       description      = "Cooperative multitasking and i/o for Python",
       long_description = open("README.rst").read(),
       packages         = ["evergreen", "evergreen.ext", "evergreen.futures", "evergreen.lib"],
-      install_requires = [i.strip() for i in open("requirements.txt").readlines() if i.strip()]
+      install_requires = [i.strip() for i in open("requirements.txt").readlines() if i.strip()],
       platforms        = ["POSIX", "Microsoft Windows"],
       classifiers      = [
           "Development Status :: 3 - Alpha",
