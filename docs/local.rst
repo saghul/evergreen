@@ -1,5 +1,5 @@
 
-.. module:: flubber.local
+.. module:: evergreen.local
 
 Task local storage
 ==================

@@ -1,20 +1,20 @@
 
-.. module:: flubber.loop
+.. module:: evergreen.loop
 
 The Event Loop
 ==============
 
-The event loop is the main entity in flubber, together with tasks. It takes care of running
+The event loop is the main entity in evergreen, together with tasks. It takes care of running
 all scheduled operations and provides time based callback scheduling as well as i/o readyness
 based callback scheduling.
 
 
 .. py:class:: EventLoop
 
-    This is the main class that sets things in motion in flubber. I runs scheduled tasks,
+    This is the main class that sets things in motion in evergreen. I runs scheduled tasks,
     timers and i/o operations. Only one event loop may exist per thread and it needs to be
     explicitly created for threads other than the main thread.
-    The current loop can be accessed with `flubber.current.loop`.
+    The current loop can be accessed with `evergreen.current.loop`.
 
     .. py:attribute:: DEFAULT_EXECUTOR_WORKERS
 
@@ -135,12 +135,12 @@ based callback scheduling.
 Finding the 'current loop'
 --------------------------
 
-Flubber provides a convenience mechanism to get a reference to the loop
+evergreen provides a convenience mechanism to get a reference to the loop
 running in the current thread:
 
 ::
 
-    current_loop = flubber.current.loop
+    current_loop = evergreen.current.loop
 
 If a loop was not explicitly created in the current thread :exc:`RuntimeError`
 is raised.

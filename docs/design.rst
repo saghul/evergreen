@@ -3,7 +3,7 @@ Design
 ======
 
 The following sections contain en explanation the design of the
-different parts that compose flubber. Flubber was inspired by similar
+different parts that compose evergreen. Evergreen was inspired by similar
 libraries such as Gevent and Eventlet, but some of the key ideas
 are different:
 
@@ -20,21 +20,21 @@ are different:
 Event loop
 ----------
 
-The event loop can be considered the central point of flubber, it deals with timers,
+The event loop can be considered the central point of evergreen, it deals with timers,
 i/o and task scheduling (described later). The event loop API is heavily inspired
-by PEP 3156, so it's possible that in the future the event loop implementation flubber
-uses can be replaced. At the moment flubber uses `puyv <https://github.com/saghul/pyuv>`_
+by PEP 3156, so it's possible that in the future the event loop implementation evergreen
+uses can be replaced. At the moment evergreen uses `puyv <https://github.com/saghul/pyuv>`_
 as the underlying event loop.
 
-In flubber only one loop may exist per thread and it has to be manually created for threads
-other than the main thread. This would be the structure of a normal program using flubber:
+In evergreen only one loop may exist per thread and it has to be manually created for threads
+other than the main thread. This would be the structure of a normal program using evergreen:
 
 ::
 
-    import flubber
+    import evergreen
 
     # Create the global loop
-    loop = flubber.EventLoop()
+    loop = evergreen.EventLoop()
 
     # Setup tasks
     ...
@@ -53,7 +53,7 @@ cooperatively blocks.
 Tasks
 -----
 
-The cooperative task abstraction provided by flubber (though the :class:`Task` class).
+The cooperative task abstraction provided by evergreen (though the :class:`Task` class).
 The public API for this class mimics that of a `threading.Thread` thread, but it's
 scheduled cooperatively.
 
@@ -81,7 +81,7 @@ other tasks can run is to use:
 
 ::
 
-    flubber.sleep(0)
+    evergreen.sleep(0)
 
 The only functions that suspend the current task are those which 'block', for example lock or
 socket functions.

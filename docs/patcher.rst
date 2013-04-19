@@ -1,13 +1,13 @@
 
-.. module:: flubber.patcher
+.. module:: evergreen.patcher
 
 Monkeypatching support
 ======================
 
-Flubber supports monkeypatching certain modules to make them cooperative. By monkeypatching,
+Evergreen supports monkeypatching certain modules to make them cooperative. By monkeypatching,
 some modules which block are replaced with API compatible versions which cooperatively yield.
 
-While flubber doesn't encourage this practice, because it leads to unexpected behavior depending
+While evergreen doesn't encourage this practice, because it leads to unexpected behavior depending
 on how modules are used, limited support is provided for some common modules:
 
 - socket
@@ -23,7 +23,7 @@ This module provides several functions to monkeypatch modules.
 
     ::
 
-        import flubber.patcher
+        import evergreen.patcher
 
         patcher.patch(socket=True, select=True, time=True)
 
@@ -42,7 +42,7 @@ This module provides several functions to monkeypatch modules.
 
     ::
 
-        import flubber.patcher
+        import evergreen.patcher
 
         SocketServer = patcher.import_patched('SocketServer')
 

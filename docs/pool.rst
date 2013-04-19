@@ -1,5 +1,5 @@
 
-.. module:: flubber.pool
+.. module:: evergreen.pool
 
 Task pools
 ==========

@@ -1,5 +1,5 @@
 
-.. module:: flubber.queue
+.. module:: evergreen.queue
 
 Synchronization primitives: queues
 ==================================

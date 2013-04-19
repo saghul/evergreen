@@ -1,5 +1,5 @@
 
-.. module:: flubber.futures
+.. module:: evergreen.futures
 
 Futures
 =======

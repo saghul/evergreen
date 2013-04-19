@@ -1,5 +1,5 @@
 
-.. module:: flubber.channel
+.. module:: evergreen.channel
 
 Synchronization primitives: Channel
 ===================================

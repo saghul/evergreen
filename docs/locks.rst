@@ -1,5 +1,5 @@
 
-.. module:: flubber.locks
+.. module:: evergreen.locks
 
 Synchronization primitives: locks
 =================================

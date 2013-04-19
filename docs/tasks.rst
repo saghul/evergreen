@@ -1,10 +1,10 @@
 
-.. module:: flubber.tasks
+.. module:: evergreen.tasks
 
 Task: a cooperative *thread*
 ============================
 
-The tasks module provides one of the most important pieces of flubber, the `Task`
+The tasks module provides one of the most important pieces of evergreen, the `Task`
 class along with some utility functions. The `Task` class encapsulates a unit
 of cooperative work and it has an API which is very similar to the `Thread` class
 in the standard library.

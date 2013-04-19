@@ -1,9 +1,9 @@
-.. module:: flubber
+.. module:: evergreen
 
 API documentation
 =================
 
-Documentation for the modules composing the public API for flubber.
+Documentation for the modules composing the public API for Evergreen.
 
 
 Modules

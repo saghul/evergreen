@@ -1,15 +1,15 @@
 
-flubber: cooperative i/o and multitasking for Python
-====================================================
+Evergreen: cooperative i/o and multitasking for Python
+======================================================
 
 Overview
 --------
 
-flubber is a Python library to help you write multitasking and i/o driven
+Evergreen is a Python library to help you write multitasking and i/o driven
 applications in a cooperative way. Unlike when using threads, where the
 execution model is preemptive and thus not controlled by *you*, using a
 cooperative model allows you to choose *what* runs and *when*.
-Flubber will make this easier.
+Evergreen will make this easier.
 
 
 Features

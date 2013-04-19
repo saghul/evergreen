@@ -1,5 +1,5 @@
 
-.. module:: flubber.timeout
+.. module:: evergreen.timeout
 
 Managing timeouts
 =================

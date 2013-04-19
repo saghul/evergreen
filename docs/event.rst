@@ -1,5 +1,5 @@
 
-.. module:: flubber.event
+.. module:: evergreen.event
 
 Synchronization primitives: Event
 =================================

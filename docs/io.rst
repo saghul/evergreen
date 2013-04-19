@@ -1,5 +1,5 @@
 
-.. module:: flubber.io
+.. module:: evergreen.io
 
 I/O utilities
 =============
