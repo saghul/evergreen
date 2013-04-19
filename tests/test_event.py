@@ -1,25 +1,25 @@
 
-from common import unittest, FlubberTestCase
+from common import unittest, EvergreenTestCase
 
-import flubber
-from flubber.event import Event
+import evergreen
+from evergreen.event import Event
 
 
-class EventTests(FlubberTestCase):
+class EventTests(EvergreenTestCase):
 
     def test_event_simple(self):
         ev = Event()
         def waiter():
             self.assertTrue(ev.wait())
-        flubber.spawn(waiter)
-        flubber.spawn(ev.set)
+        evergreen.spawn(waiter)
+        evergreen.spawn(ev.set)
         self.loop.run()
 
     def test_event_timeout(self):
         ev = Event()
         def waiter():
             self.assertFalse(ev.wait(0.001))
-        flubber.spawn(waiter)
+        evergreen.spawn(waiter)
         self.loop.call_later(0.1, ev.set)
         self.loop.run()
 
@@ -27,9 +27,9 @@ class EventTests(FlubberTestCase):
         ev = Event()
         def waiter():
             ev.wait()
-        t1 = flubber.spawn(waiter)
-        flubber.spawn(t1.kill)
-        flubber.spawn(ev.set)
+        t1 = evergreen.spawn(waiter)
+        evergreen.spawn(t1.kill)
+        evergreen.spawn(ev.set)
         self.loop.run()
         self.assertTrue(ev.is_set())
 
@@ -38,8 +38,8 @@ class EventTests(FlubberTestCase):
         def waiter():
             self.assertTrue(ev.wait())
             ev.clear()
-        flubber.spawn(waiter)
-        flubber.spawn(ev.set)
+        evergreen.spawn(waiter)
+        evergreen.spawn(ev.set)
         self.loop.run()
         self.assertFalse(ev.is_set())
 

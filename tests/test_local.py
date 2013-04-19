@@ -1,11 +1,11 @@
 
-from common import unittest, FlubberTestCase
+from common import unittest, EvergreenTestCase
 
-import flubber
-from flubber.local import local
+import evergreen
+from evergreen.local import local
 
 
-class LocalTests(FlubberTestCase):
+class LocalTests(EvergreenTestCase):
 
     def test_local(self):
         tls = local()
@@ -14,9 +14,9 @@ class LocalTests(FlubberTestCase):
             self.assertRaises(AttributeError, lambda: tls.foo)
             tls.foo = x
             self.assertEqual(tls.foo, x)
-        flubber.spawn(func, 1)
-        flubber.spawn(func, 2)
-        flubber.spawn(func, 3)
+        evergreen.spawn(func, 1)
+        evergreen.spawn(func, 2)
+        evergreen.spawn(func, 3)
         self.loop.run()
 
 

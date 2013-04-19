@@ -1,21 +1,21 @@
 
-from common import unittest, FlubberTestCase
+from common import unittest, EvergreenTestCase
 
-import flubber
-from flubber.pool import Pool
+import evergreen
+from evergreen.pool import Pool
 
 
-class PoolTests(FlubberTestCase):
+class PoolTests(EvergreenTestCase):
 
     def test_pool(self):
         pool = Pool()
         def run(x):
-            flubber.sleep(x)
+            evergreen.sleep(x)
         def func():
             pool.spawn(run, 0.01)
             pool.spawn(run, 0.01)
             pool.spawn(run, 0.01)
             pool.join()
-        flubber.spawn(func)
+        evergreen.spawn(func)
         self.loop.run()
 

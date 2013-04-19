@@ -1,7 +1,7 @@
 
-from common import dummy, unittest, FlubberTestCase
+from common import dummy, unittest, EvergreenTestCase
 
-import flubber
+import evergreen
 import os
 import signal
 import threading
@@ -11,17 +11,17 @@ import time
 class TLSTest(unittest.TestCase):
 
     def test_no_noop(self):
-        loop = flubber.current.loop
+        loop = evergreen.current.loop
         self.assertTrue(loop)
         loop.destroy()
 
     def test_make_loop(self):
-        loop = flubber.EventLoop()
-        self.assertTrue(flubber.current.loop is loop)
+        loop = evergreen.EventLoop()
+        self.assertTrue(evergreen.current.loop is loop)
         loop.destroy()
 
 
-class LoopTests(FlubberTestCase):
+class LoopTests(EvergreenTestCase):
 
     def test_run(self):
         self.loop.run()
@@ -109,7 +109,7 @@ class LoopTests(FlubberTestCase):
         def func():
             r = self.loop._threadpool.spawn(runner)
             self.assertNotEqual(r.wait(), tid)
-        flubber.spawn(func)
+        evergreen.spawn(func)
         self.loop.run()
 
     def test_run_forever(self):

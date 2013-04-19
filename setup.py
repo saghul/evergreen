@@ -1,17 +1,17 @@
 # coding=utf8
 
 from distutils.core import setup
-from flubber import __version__
+from evergreen import __version__
 
 
-setup(name             = "flubber",
+setup(name             = "evergreen",
       version          = __version__,
       author           = "Saúl Ibarra Corretgé",
       author_email     = "saghul@gmail.com",
-      url              = "http://github.com/saghul/flubber",
+      url              = "http://github.com/saghul/evergreen",
       description      = "Cooperative multitasking and i/o for Python",
       long_description = open("README.rst").read(),
-      packages         = ["flubber", "flubber.ext", "flubber.futures", "flubber.lib"],
+      packages         = ["evergreen", "evergreen.ext", "evergreen.futures", "evergreen.lib"],
       platforms        = ["POSIX", "Microsoft Windows"],
       classifiers      = [
           "Development Status :: 3 - Alpha",

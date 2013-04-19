@@ -10,17 +10,17 @@ if sys.version_info < (2, 7) or (0x03000000 <= sys.hexversion < 0x03010000):
 else:
     import unittest
 
-import flubber
+import evergreen
 
 
 class dummy(object):
     pass
 
 
-class FlubberTestCase(unittest.TestCase):
+class EvergreenTestCase(unittest.TestCase):
 
     def setUp(self):
-        self.loop = flubber.EventLoop()
+        self.loop = evergreen.EventLoop()
 
     def tearDown(self):
         self.loop.destroy()

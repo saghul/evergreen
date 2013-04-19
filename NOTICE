@@ -1,12 +1,12 @@
-Flubber is written and maintained by
+Evergreen is written and maintained by
 
     Saúl Ibarra Corretgé <saghul@gmail.com>
 
 
-Flubber contains pieces of code from other projects, copyright goes
+Evergreen contains pieces of code from other projects, copyright goes
 to their autors
 
-    - Base: Flubber was initially based on Eventlet
+    - Base: Evergreen was initially based on Eventlet
     - socket.py: Adapted from Gevent
     - ssl.py: Adapted from Gevent
     - ext/*: Adapted from Flask
@@ -18,5 +18,5 @@ Some parts of the documentation have been taken from the standard library
 documentation.
 
 
-If your code is used in Flubber and you are not mentioned above, please contact the maintainer.
+If your code is used in Evergreen and you are not mentioned above, please contact the maintainer.
 

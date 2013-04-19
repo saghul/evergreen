@@ -1,5 +1,5 @@
 
-from flubber import futures, patcher
+from evergreen import futures, patcher
 urllib2 = patcher.import_patched('urllib2')
 
 urls = ["http://google.com",

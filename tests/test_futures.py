@@ -1,15 +1,15 @@
 
-from common import dummy, unittest, FlubberTestCase
+from common import dummy, unittest, EvergreenTestCase
 
-import flubber
-from flubber import futures
+import evergreen
+from evergreen import futures
 
 
 def dummy():
     return 42
 
 
-class FuturesTests(FlubberTestCase):
+class FuturesTests(EvergreenTestCase):
 
     def test_default_executor(self):
         def func():
@@ -17,7 +17,7 @@ class FuturesTests(FlubberTestCase):
         def waiter():
             f = self.loop.run_in_executor(None, func)
             self.assertEqual(f.get(), 42)
-        flubber.spawn(waiter)
+        evergreen.spawn(waiter)
         self.loop.run()
 
     def test_default_executor_raises(self):
@@ -26,7 +26,7 @@ class FuturesTests(FlubberTestCase):
         def waiter():
             f = self.loop.run_in_executor(None, func)
             self.assertRaises(ZeroDivisionError, f.get)
-        flubber.spawn(waiter)
+        evergreen.spawn(waiter)
         self.loop.run()
 
     def test_taskpool_executor(self):
@@ -36,7 +36,7 @@ class FuturesTests(FlubberTestCase):
         def waiter():
             f = executor.submit(func)
             self.assertEqual(f.get(), 42)
-        flubber.spawn(waiter)
+        evergreen.spawn(waiter)
         self.loop.run()
 
     def test_threadpool_executor(self):
@@ -48,7 +48,7 @@ class FuturesTests(FlubberTestCase):
         def waiter():
             f = executor.submit(func)
             self.assertEqual(f.get(), 42)
-        flubber.spawn(waiter)
+        evergreen.spawn(waiter)
         self.loop.run()
 
     def test_processpool_executor(self):
@@ -56,7 +56,7 @@ class FuturesTests(FlubberTestCase):
         def waiter():
             f = executor.submit(dummy)
             self.assertEqual(f.get(), 42)
-        flubber.spawn(waiter)
+        evergreen.spawn(waiter)
         self.loop.run()
 
     def test_executor_with(self):
@@ -66,24 +66,24 @@ class FuturesTests(FlubberTestCase):
             with futures.TaskPoolExecutor(5) as e:
                 f = e.submit(func)
                 self.assertEqual(f.get(), 42)
-        flubber.spawn(waiter)
+        evergreen.spawn(waiter)
         self.loop.run()
 
     def test_future_wait(self):
         def func():
-            flubber.sleep(0.001)
+            evergreen.sleep(0.001)
             return 42
         def waiter():
             f = self.loop.run_in_executor(None, func)
             done, not_done = futures.wait([f])
             self.assertTrue(f in done)
             self.assertEqual(f.get(), 42)
-        flubber.spawn(waiter)
+        evergreen.spawn(waiter)
         self.loop.run()
 
     def test_future_wait_multiple(self):
         def func():
-            flubber.sleep(0.001)
+            evergreen.sleep(0.001)
             return 42
         def waiter():
             f1 = self.loop.run_in_executor(None, func)
@@ -92,12 +92,12 @@ class FuturesTests(FlubberTestCase):
             self.assertTrue(f1 in done and f2 in done)
             self.assertEqual(f1.get(), 42)
             self.assertEqual(f2.get(), 42)
-        flubber.spawn(waiter)
+        evergreen.spawn(waiter)
         self.loop.run()
 
     def test_future_wait_multiple_wait_first(self):
         def func(x):
-            flubber.sleep(x)
+            evergreen.sleep(x)
             return 42
         def waiter():
             f = self.loop.run_in_executor(None, func, 0.01)
@@ -109,12 +109,12 @@ class FuturesTests(FlubberTestCase):
             self.assertEqual(len(not_done), 100)
             self.assertEqual(f.get(), 42)
             self.loop.stop()
-        flubber.spawn(waiter)
+        evergreen.spawn(waiter)
         self.loop.run()
 
     def test_future_wait_multiple_exception(self):
         def func():
-            flubber.sleep(0.001)
+            evergreen.sleep(0.001)
             return 42
         def raiser():
             1/0
@@ -127,18 +127,18 @@ class FuturesTests(FlubberTestCase):
             self.assertTrue(f2 in not_done and f3 in not_done)
             self.assertRaises(ZeroDivisionError, f1.get)
             self.loop.stop()
-        flubber.spawn(waiter)
+        evergreen.spawn(waiter)
         self.loop.run()
 
     def test_future_as_completed(self):
         def func(x):
-            flubber.sleep(x)
+            evergreen.sleep(x)
             return 42
         def waiter():
             l = [self.loop.run_in_executor(None, func, 0.001) for x in range(10)]
             for f in futures.as_completed(l):
                 self.assertEqual(f.get(), 42)
-        flubber.spawn(waiter)
+        evergreen.spawn(waiter)
         self.loop.run()
 
     def test_map(self):
@@ -150,7 +150,7 @@ class FuturesTests(FlubberTestCase):
             l2 = [4, 16, 36]
             r = list(executor.map(func, l1))
             self.assertEqual(r, l2)
-        flubber.spawn(waiter)
+        evergreen.spawn(waiter)
         self.loop.run()
 
 

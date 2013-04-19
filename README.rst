@@ -1,12 +1,12 @@
 
-====================================================
-flubber: cooperative multitasking and i/o for Python
-====================================================
+======================================================
+Evergreen: cooperative multitasking and i/o for Python
+======================================================
 
 Overview
 ========
 
-Flubber is a cooperative multitasking and i/o library for Python. It provides equivalent primitives to
+Evergreen is a cooperative multitasking and i/o library for Python. It provides equivalent primitives to
 those for thread programing, but uses a cooperative model instead.
 
 Operations are driven by an event loop which will run the given tasks and i/o operations in a non-blocking
@@ -44,7 +44,7 @@ There are several ways of running the test ruite:
 Documentation
 =============
 
-http://readthedocs.org/docs/flubber/
+http://readthedocs.org/docs/evergreen/
 
 
 Author
@@ -52,14 +52,14 @@ Author
 
 Saúl Ibarra Corretgé <saghul@gmail.com>
 
-Code written by other authors has been adapted for use with flubber, check
+Code written by other authors has been adapted for use with Evergreen, check
 the NOTICE file.
 
 
 License
 =======
 
-Unless stated otherwise on-file pyuv uses the MIT license, check LICENSE and NOTICE files.
+Unless stated otherwise on-file Evergreen uses the MIT license, check LICENSE and NOTICE files.
 
 
 Contributing

@@ -1,10 +1,10 @@
 
 import sys
 
-import flubber
-from flubber import net
+import evergreen
+from evergreen import net
 
-loop = flubber.EventLoop()
+loop = evergreen.EventLoop()
 
 
 def handle(fd):
@@ -26,9 +26,9 @@ def echo_server():
     while True:
         new_sock, address = server.accept()
         print("accepted connection from {}".format(address))
-        flubber.spawn(handle, new_sock.makefile('rw'))
+        evergreen.spawn(handle, new_sock.makefile('rw'))
 
 
-flubber.spawn(echo_server)
+evergreen.spawn(echo_server)
 loop.run()
 

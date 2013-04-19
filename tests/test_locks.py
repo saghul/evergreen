@@ -1,18 +1,18 @@
 
-from common import dummy, unittest, FlubberTestCase
+from common import dummy, unittest, EvergreenTestCase
 
-import flubber
-from flubber import locks
+import evergreen
+from evergreen import locks
 
 
-class LocksTests(FlubberTestCase):
+class LocksTests(EvergreenTestCase):
 
     def test_semaphore(self):
         def func():
             lock = locks.Semaphore()
             lock.acquire()
             self.assertFalse(lock.acquire(blocking=False))
-        flubber.spawn(func)
+        evergreen.spawn(func)
         self.loop.run()
 
     def test_bounded_semaphore(self):
@@ -21,7 +21,7 @@ class LocksTests(FlubberTestCase):
             lock.acquire()
             lock.release()
             self.assertRaises(ValueError, lock.release)
-        flubber.spawn(func)
+        evergreen.spawn(func)
         self.loop.run()
 
     def test_rlock(self):
@@ -31,8 +31,8 @@ class LocksTests(FlubberTestCase):
             self.assertTrue(lock.acquire())
         def func2():
             self.assertFalse(lock.acquire(blocking=False))
-        flubber.spawn(func1)
-        flubber.spawn(func2)
+        evergreen.spawn(func1)
+        evergreen.spawn(func2)
         self.loop.run()
 
     def test_condition(self):
@@ -48,7 +48,7 @@ class LocksTests(FlubberTestCase):
             with cond:
                 d.value = 42
                 cond.notify_all()
-        flubber.spawn(func1)
-        flubber.spawn(func2)
+        evergreen.spawn(func1)
+        evergreen.spawn(func2)
         self.loop.run()
 
