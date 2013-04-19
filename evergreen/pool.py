@@ -2,8 +2,6 @@
 # This file is part of Evergreen. See the NOTICE for more information.
 #
 
-from functools import partial
-
 import evergreen
 from evergreen.event import Event
 from evergreen.locks import Semaphore
@@ -24,14 +22,14 @@ class Pool(object):
         self._lock.acquire()
         self._running_jobs += 1
         self._end_event.clear()
-        return evergreen.spawn(self._runner, partial(func, *args, **kw))
+        return evergreen.spawn(self._runner, func, args, kw)
 
     def join(self, timeout=None):
         return self._end_event.wait(timeout)
 
-    def _runner(self, func):
+    def _runner(self, func, args, kw):
         try:
-            func()
+            func(*args, **kw)
         finally:
             self._running_jobs -= 1
             if self._running_jobs == 0:
