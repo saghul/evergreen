@@ -2,10 +2,10 @@
 # This file is part of Evergreen. See the NOTICE for more information.
 #
 
-import numbers
 import re
 import socket
 
+from evergreen import six
 from evergreen.event import Event
 from evergreen.io.util import ReadBuffer
 
@@ -30,7 +30,7 @@ class BaseStream(object):
         self._closed = False
 
     def read_bytes(self, nbytes):
-        assert isinstance(nbytes, numbers.Integral)
+        assert isinstance(nbytes, six.integer_types)
         assert nbytes > 0
         return self._do_read(nbytes=nbytes)
 
