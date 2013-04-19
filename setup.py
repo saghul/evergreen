@@ -12,6 +12,7 @@ setup(name             = "evergreen",
       description      = "Cooperative multitasking and i/o for Python",
       long_description = open("README.rst").read(),
       packages         = ["evergreen", "evergreen.ext", "evergreen.futures", "evergreen.lib"],
+      install_requires = [i.strip() for i in open("requirements.txt").readlines() if i.strip()]
       platforms        = ["POSIX", "Microsoft Windows"],
       classifiers      = [
           "Development Status :: 3 - Alpha",
