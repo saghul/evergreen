@@ -52,3 +52,7 @@ class LocksTests(EvergreenTestCase):
         evergreen.spawn(func2)
         self.loop.run()
 
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)
+
