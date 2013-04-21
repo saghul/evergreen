@@ -16,7 +16,7 @@ Features:
 
 - Cooperative multitasking
 - Cooperative synchronization primitives: locks, events, queues, channels
-- concurrent.futures API compatible equivalent
+- Futures API (almost) compatible with the standard library
 - Cooperative versions of several standard library modules
 - Ability to monkey patch standard library modules to make them
   cooperative
