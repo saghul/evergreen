@@ -1,7 +1,10 @@
 # coding=utf8
 
 import re
-from distutils.core import setup
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
 
 
 def get_version():
