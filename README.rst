@@ -1,4 +1,3 @@
-
 ======================================================
 Evergreen: cooperative multitasking and i/o for Python
 ======================================================
@@ -7,10 +6,10 @@ Overview
 ========
 
 Evergreen is a cooperative multitasking and i/o library for Python. It provides equivalent primitives to
-those for thread programing, but uses a cooperative model instead.
+those for thread programming, but uses a cooperative model instead.
 
 Operations are driven by an event loop which will run the given tasks and i/o operations in a non-blocking
-manner while presenting the user a syncrhonous, blocking API.
+manner while presenting the user a synchronous, blocking API.
 
 Features:
 
@@ -25,11 +24,11 @@ Features:
 Running the test suite
 ======================
 
-There are several ways of running the test ruite:
+There are several ways of running the test suite:
 
 - Running individual tests:
 
-  Go inside the tests/ directory and run each individeal test
+  Go inside the tests/ directory and run each individual test
 
 - Run the test with the current Python interpreter:
 
