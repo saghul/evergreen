@@ -2,7 +2,7 @@
 # This file is part of Evergreen. See the NOTICE for more information.
 #
 
-__version__ = '0.0.1.dev'
+__version__ = '0.0.1'
 
 from evergreen.channel import *
 from evergreen.loop import *
