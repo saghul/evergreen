@@ -4,7 +4,7 @@
 Synchronization primitives: Channel
 ===================================
 
-Channels are the simples mechanism for 2 tasks to exhcnage data.
+Channels are the simplest mechanism for 2 tasks to exchange data.
 
 
 .. py:class:: Channel
