@@ -8,6 +8,8 @@ socket = patcher.original('socket')
 __all__ = ('SocketPair')
 
 
+import errno
+
 try:
     from socket import socketpair
 except ImportError:
