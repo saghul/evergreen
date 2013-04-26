@@ -309,7 +309,6 @@ class EventLoop(object):
         self._loop.event_loop = None
         self._loop.excepthook = None
         self._loop = None
-        self._default_executor = None
         self._threadpool = None
 
         self._ready_processor = None
