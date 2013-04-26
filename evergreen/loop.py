@@ -123,6 +123,7 @@ class EventLoop(object):
         self.tasklet = tasklet(self._run_loop)
 
         self._started = False
+        self._running = False
 
         self._fd_map = dict()
         self._signals = dict()
@@ -139,6 +140,10 @@ class EventLoop(object):
         self._waker.unref()
 
         self._install_signal_checker()
+
+    @property
+    def running(self):
+        return self._running
 
     def call_soon(self, callback, *args, **kw):
         handler = Handler(callback, args, kw)
@@ -293,7 +298,9 @@ class EventLoop(object):
             self._loop.stop()
 
     def destroy(self):
-        global _tls
+        if self._running:
+            raise RuntimeError('destroy() cannot be called while the loop is running')
+
         try:
             loop = _tls.loop
         except AttributeError:
@@ -339,7 +346,11 @@ class EventLoop(object):
         if self._started:
             raise RuntimeError('event loop was already started')
         self._started = True
-        self.tasklet.switch(forever=forever)
+        self._running = True
+        try:
+            self.tasklet.switch(forever=forever)
+        finally:
+            self._running = False
 
     def _run_loop(self, forever=False):
         if forever:

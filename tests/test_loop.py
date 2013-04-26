@@ -20,6 +20,14 @@ class TLSTest(unittest.TestCase):
         self.assertTrue(evergreen.current.loop is loop)
         loop.destroy()
 
+    def test_destroy_create(self):
+        loop1 = evergreen.current.loop
+        self.assertTrue(loop1)
+        loop1.destroy()
+        loop2 = evergreen.current.loop
+        self.assertFalse(loop1 is loop2)
+        loop2.destroy()
+
 
 class LoopTests(EvergreenTestCase):
 
@@ -200,6 +208,13 @@ class LoopTests(EvergreenTestCase):
         self.loop.run_forever()
         self.assertFalse(d.called1)
         self.assertTrue(d.called2)
+
+    def test_destroy_while_running(self):
+        def func():
+            evergreen.sleep(0.01)
+            self.assertRaises(RuntimeError, self.loop.destroy)
+        evergreen.spawn(func)
+        self.loop.run()
 
 
 if __name__ == '__main__':
