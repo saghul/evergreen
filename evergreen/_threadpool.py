@@ -9,6 +9,10 @@ from evergreen.event import Event
 
 __all__ = ('ThreadPool')
 
+"""Internal thread pool which uses the pyuv work queuing capability. This module
+is for internal use of Evergreen.
+"""
+
 
 class _Work(object):
     __slots__ = ('func', 'args', 'kwargs', 'result', 'exc')
