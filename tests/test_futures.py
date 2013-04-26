@@ -11,24 +11,6 @@ def dummy():
 
 class FuturesTests(EvergreenTestCase):
 
-    def test_default_executor(self):
-        def func():
-            return 42
-        def waiter():
-            f = self.loop.run_in_executor(None, func)
-            self.assertEqual(f.get(), 42)
-        evergreen.spawn(waiter)
-        self.loop.run()
-
-    def test_default_executor_raises(self):
-        def func():
-            1/0
-        def waiter():
-            f = self.loop.run_in_executor(None, func)
-            self.assertRaises(ZeroDivisionError, f.get)
-        evergreen.spawn(waiter)
-        self.loop.run()
-
     def test_taskpool_executor(self):
         executor = futures.TaskPoolExecutor(10)
         def func():
@@ -36,6 +18,16 @@ class FuturesTests(EvergreenTestCase):
         def waiter():
             f = executor.submit(func)
             self.assertEqual(f.get(), 42)
+        evergreen.spawn(waiter)
+        self.loop.run()
+
+    def test_taskpool_executor_raises(self):
+        executor = futures.TaskPoolExecutor(10)
+        def func():
+            1/0
+        def waiter():
+            f = executor.submit(func)
+            self.assertRaises(ZeroDivisionError, f.get)
         evergreen.spawn(waiter)
         self.loop.run()
 
@@ -70,11 +62,12 @@ class FuturesTests(EvergreenTestCase):
         self.loop.run()
 
     def test_future_wait(self):
+        executor = futures.TaskPoolExecutor(10)
         def func():
             evergreen.sleep(0.001)
             return 42
         def waiter():
-            f = self.loop.run_in_executor(None, func)
+            f = executor.submit(func)
             done, not_done = futures.wait([f])
             self.assertTrue(f in done)
             self.assertEqual(f.get(), 42)
@@ -82,12 +75,13 @@ class FuturesTests(EvergreenTestCase):
         self.loop.run()
 
     def test_future_wait_multiple(self):
+        executor = futures.TaskPoolExecutor(10)
         def func():
             evergreen.sleep(0.001)
             return 42
         def waiter():
-            f1 = self.loop.run_in_executor(None, func)
-            f2 = self.loop.run_in_executor(None, func)
+            f1 = executor.submit(func)
+            f2 = executor.submit(func)
             done, not_done = futures.wait([f1, f2])
             self.assertTrue(f1 in done and f2 in done)
             self.assertEqual(f1.get(), 42)
@@ -96,14 +90,15 @@ class FuturesTests(EvergreenTestCase):
         self.loop.run()
 
     def test_future_wait_multiple_wait_first(self):
+        executor = futures.TaskPoolExecutor(10)
         def func(x):
             evergreen.sleep(x)
             return 42
         def waiter():
-            f = self.loop.run_in_executor(None, func, 0.01)
+            f = executor.submit(func, 0.01)
             l = [f]
             for x in range(100):
-                l.append(self.loop.run_in_executor(None, func, 100))
+                l.append(executor.submit(func, 100))
             done, not_done = futures.wait(l, return_when=futures.FIRST_COMPLETED)
             self.assertTrue(f in done)
             self.assertEqual(len(not_done), 100)
@@ -113,15 +108,16 @@ class FuturesTests(EvergreenTestCase):
         self.loop.run()
 
     def test_future_wait_multiple_exception(self):
+        executor = futures.TaskPoolExecutor(10)
         def func():
             evergreen.sleep(0.001)
             return 42
         def raiser():
             1/0
         def waiter():
-            f1 = self.loop.run_in_executor(None, raiser)
-            f2 = self.loop.run_in_executor(None, func)
-            f3 = self.loop.run_in_executor(None, func)
+            f1 = executor.submit(raiser)
+            f2 = executor.submit(func)
+            f3 = executor.submit(func)
             done, not_done = futures.wait([f1, f2, f3], return_when=futures.FIRST_EXCEPTION)
             self.assertTrue(f1 in done)
             self.assertTrue(f2 in not_done and f3 in not_done)
@@ -131,11 +127,12 @@ class FuturesTests(EvergreenTestCase):
         self.loop.run()
 
     def test_future_as_completed(self):
+        executor = futures.TaskPoolExecutor(10)
         def func(x):
             evergreen.sleep(x)
             return 42
         def waiter():
-            l = [self.loop.run_in_executor(None, func, 0.001) for x in range(10)]
+            l = [executor.submit(func, 0.001) for x in range(10)]
             for f in futures.as_completed(l):
                 self.assertEqual(f.get(), 42)
         evergreen.spawn(waiter)

@@ -15,7 +15,6 @@ except ImportError:
 
 from collections import deque
 
-from evergreen.futures import TaskPoolExecutor
 from evergreen._socketpair import SocketPair
 from evergreen._tasklet import tasklet, get_current, TaskletExit
 from evergreen._threadpool import ThreadPool
@@ -111,7 +110,6 @@ class Ticker(pyuv.Idle):
 
 
 class EventLoop(object):
-    DEFAULT_EXECUTOR_WORKERS = 100
 
     def __init__(self):
         global _tls
@@ -121,7 +119,6 @@ class EventLoop(object):
         self._loop = pyuv.Loop()
         self._loop.excepthook = self._handle_error
         self._loop.event_loop = self
-        self._default_executor = None
         self._threadpool = ThreadPool(self)
         self.tasklet = tasklet(self._run_loop)
 
@@ -174,18 +171,6 @@ class EventLoop(object):
         timer.start(self._timer_cb, interval, interval)
         self._timers.add(timer)
         return handler
-
-    def run_in_executor(self, executor, callback, *args, **kw):
-        assert not isinstance(callback, Handler)
-        if executor is None:
-            executor = self._default_executor
-            if executor is None:
-                executor = TaskPoolExecutor(self.DEFAULT_EXECUTOR_WORKERS)
-                self._default_executor = executor
-        return executor.submit(callback, *args, **kw)
-
-    def set_default_executor(self, executor):
-        self._default_executor = executor
 
     def add_reader(self, fd, callback, *args, **kw):
         handler = Handler(callback, args, kw)
