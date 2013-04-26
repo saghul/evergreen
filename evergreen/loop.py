@@ -112,7 +112,6 @@ class Ticker(pyuv.Idle):
 class EventLoop(object):
 
     def __init__(self):
-        global _tls
         if getattr(_tls, 'loop', None) is not None:
             raise RuntimeError('cannot instantiate more than one event loop per thread')
         _tls.loop = self
@@ -122,6 +121,7 @@ class EventLoop(object):
         self._threadpool = ThreadPool(self)
         self.tasklet = tasklet(self._run_loop)
 
+        self._destroyed = False
         self._started = False
         self._running = False
 
@@ -301,15 +301,16 @@ class EventLoop(object):
         if self._running:
             raise RuntimeError('destroy() cannot be called while the loop is running')
 
-        try:
-            loop = _tls.loop
-        except AttributeError:
-            return
-        else:
-            if loop is not self:
-                raise RuntimeError('destroy() can only be called from the same thread were the event loop was created')
-            del _tls.loop, loop
+        if self._destroyed:
+            raise RuntimeError('Event loop already destroyed.')
 
+        loop = getattr(_tls, 'loop', None)
+
+        if loop is not self:
+            raise RuntimeError('destroy() can only be called from the same thread were the event loop was created')
+        del _tls.loop, loop
+
+        self._destroyed = True
         self._uninstall_signal_checker()
 
         self._cleanup_loop()

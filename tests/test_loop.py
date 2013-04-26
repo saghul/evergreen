@@ -2,10 +2,11 @@
 from common import dummy, unittest, EvergreenTestCase
 
 import evergreen
-import os
 import signal
 import threading
 import time
+
+from evergreen.six.moves import queue
 
 
 class TLSTest(unittest.TestCase):
@@ -14,6 +15,7 @@ class TLSTest(unittest.TestCase):
         loop = evergreen.current.loop
         self.assertTrue(loop)
         loop.destroy()
+        self.assertRaises(RuntimeError, loop.destroy)
 
     def test_make_loop(self):
         loop = evergreen.EventLoop()
@@ -27,6 +29,23 @@ class TLSTest(unittest.TestCase):
         loop2 = evergreen.current.loop
         self.assertFalse(loop1 is loop2)
         loop2.destroy()
+
+    def _start_loop(self, q):
+        l = evergreen.loop.EventLoop()
+        q.put(l)
+        l.run_forever()
+        l.destroy()
+
+    def test_destroy(self):
+        q = queue.Queue()
+        thread = threading.Thread(target=self._start_loop, args=(q,))
+        thread.start()
+
+        loop = q.get()
+        self.assertRaises(RuntimeError, loop.destroy)
+        loop.call_from_thread(loop.stop)
+
+        thread.join()
 
 
 class LoopTests(EvergreenTestCase):
