@@ -16,10 +16,6 @@ based callback scheduling.
     explicitly created for threads other than the main thread.
     The current loop can be accessed with `evergreen.current.loop`.
 
-    .. py:attribute:: DEFAULT_EXECUTOR_WORKERS
-
-        Number of workers for the default executor.
-
     .. py:method:: call_soon(callback, \*args, \*\*kw)
 
         Schedule the given callback to be called as soon as possible. Returns a `Handler`
@@ -41,16 +37,6 @@ based callback scheduling.
         Schedule the given callback to be called at the given time
         intervals. Returns a `Handler` object which can be used to cancel the
         callback.
-
-    .. py:method:: run_in_executor(executor, callback, \*args, \*\*kw)
-
-        Run the given callback in the given executor. In case it's None,
-        a default `TaskPoolExecutor` will be created with `DEFAULT_EXECUTOR_WORKERS`
-        size. Returns a `Future` instance.
-
-    .. py:method:: set_default_executor(executor)
-
-        Set the default executor.
 
     .. py:method:: add_reader(fd, callback, \*args, \*\*kw)
 
