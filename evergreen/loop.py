@@ -433,6 +433,7 @@ class EventLoop(object):
 
     def _install_signal_checker(self):
         self._socketpair = SocketPair()
+        self._signal_checker = None
         if hasattr(signal, 'set_wakeup_fd') and os.name == 'posix':
             try:
                 old_wakeup_fd = signal.set_wakeup_fd(self._socketpair.writer_fileno())
@@ -450,9 +451,10 @@ class EventLoop(object):
                 self._socketpair = None
 
     def _uninstall_signal_checker(self):
-        if self._socketpair:
+        if self._signal_checker:
             self._signal_checker.close()
             self._signal_checker = None
+        if self._socketpair:
             self._socketpair.close()
             self._socketpair = None
 
