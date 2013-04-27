@@ -7,6 +7,7 @@ import pyuv
 import evergreen
 from evergreen.io.stream import BaseStream, StreamError, StreamConnection, StreamServer
 from evergreen.io.util import Result, convert_errno
+from evergreen.lib import socket
 
 __all__ = ['TCPServer', 'TCPClient', 'TCPConnection', 'TCPError']
 
@@ -100,26 +101,45 @@ class TCPClient(TCPStream):
     def connect(self, target, source_address=None):
         if self._connected:
             raise TCPError('already connected')
-        # TODO: getaddrinfo
-        if source_address:
-            try:
-                self._handle.bind(source_address)
-            except pyuv.error.TCPError as e:
-                raise TCPError(convert_errno(e.args[0]), e.args[1])
         try:
-            self._handle.connect(target, self.__connect_cb)
-        except pyuv.error.TCPError as e:
-            raise TCPError(convert_errno(e.args[0]), e.args[1])
+            r = socket.getaddrinfo(*target)
+        except socket.error as e:
+            raise TCPError(e)
+        if not r:
+            raise TCPError('getaddrinfo returned no result')
         self._connect_result = Result()
-        try:
-            self._connect_result.wait()
-        except TCPError:
-            self.close()
-            raise
-        else:
-            self._set_connected()
-        finally:
-            self._connect_result = None
+        err = None
+        loop = self._handle.loop
+        for item in r:
+            addr = item[-1]
+            if '%' in addr[0]:
+                # Skip addresses such as 'fe80::1%lo0'
+                # TODO: handle this properly
+                continue
+            handle = pyuv.TCP(loop)
+            try:
+                if source_address:
+                    handle.bind(source_address)
+                handle.connect(addr, self.__connect_cb)
+            except pyuv.error.TCPError as e:
+                err = TCPError(convert_errno(e.args[0]), e.args[1])
+                handle.close()
+                continue
+            try:
+                self._connect_result.wait()
+            except TCPError as e:
+                err = e
+                handle.close()
+                self._connect_result.clear()
+                continue
+            else:
+                self._handle.close()
+                self._handle = handle
+                break
+        self._connect_result = None
+        if err is not None:
+            raise err
+        self._set_connected()
 
     def __connect_cb(self, handle, error):
         if error is not None:
