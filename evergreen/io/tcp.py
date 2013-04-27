@@ -6,7 +6,7 @@ import pyuv
 
 import evergreen
 from evergreen.io.stream import BaseStream, StreamError, StreamConnection, StreamServer
-from evergreen.io.util import Result
+from evergreen.io.util import Result, convert_errno
 
 __all__ = ['TCPServer', 'TCPClient', 'TCPConnection', 'TCPError']
 
@@ -46,7 +46,7 @@ class TCPStream(BaseStream):
             self._handle.start_read(self.__read_cb)
         except pyuv.error.TCPError as e:
             self.close()
-            raise TCPError(e.args[0], e.args[1])
+            raise TCPError(convert_errno(e.args[0]), e.args[1])
         try:
             data = self._read_result.wait()
         except TCPError as e:
@@ -65,7 +65,7 @@ class TCPStream(BaseStream):
             self._handle.write(data, self.__write_cb)
         except pyuv.error.TCPError as e:
             self.close()
-            raise TCPError(e.args[0], e.args[1])
+            raise TCPError(convert_errno(e.args[0]), e.args[1])
 
     def _close(self):
         self._handle.shutdown(self.__shutdown_cb)
@@ -105,11 +105,11 @@ class TCPClient(TCPStream):
             try:
                 self._handle.bind(source_address)
             except pyuv.error.TCPError as e:
-                raise TCPError(e.args[0], e.args[1])
+                raise TCPError(convert_errno(e.args[0]), e.args[1])
         try:
             self._handle.connect(target, self.__connect_cb)
         except pyuv.error.TCPError as e:
-            raise TCPError(e.args[0], e.args[1])
+            raise TCPError(convert_errno(e.args[0]), e.args[1])
         self._connect_result = Result()
         try:
             self._connect_result.wait()
@@ -123,7 +123,7 @@ class TCPClient(TCPStream):
 
     def __connect_cb(self, handle, error):
         if error is not None:
-            self._connect_result.set_exception(TCPError(error, pyuv.errno.strerror(error)))
+            self._connect_result.set_exception(TCPError(convert_errno(error), pyuv.errno.strerror(error)))
         else:
             self._connect_result.set_result(None)
 
@@ -153,7 +153,7 @@ class TCPServer(StreamServer):
         try:
             self._handle.listen(self.__listen_cb, backlog)
         except pyuv.error.TCPError as e:
-            raise TCPError(e.args[0], e.args[1])
+            raise TCPError(convert_errno(e.args[0]), e.args[1])
 
     def _close(self):
         self._handle.close()
