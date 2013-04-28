@@ -50,7 +50,7 @@ class BaseStream(object):
     def close(self):
         if self._closed:
             return
-        # Read buffer is not closed because it may still contain buffered data
+        self._read_buffer.clear()
         self._write_buffer = []
         self._close()
         self._closed = True
