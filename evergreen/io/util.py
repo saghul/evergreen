@@ -73,10 +73,16 @@ class ReadBuffer(object):
             self.close()
             raise IOError('Maximum buffer size reached')
 
+    def clear(self):
+        self._check_closed()
+        self._buf.clear()
+        self._size = 0
+
     def close(self):
         if not self._closed:
             self._closed = True
-            del self._buf, self._size
+            self._buf.clear()
+            self._size = 0
 
     # internal
 
