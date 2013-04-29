@@ -178,14 +178,13 @@ class TCPServer(StreamServer):
 
     def __listen_cb(self, handle, error):
         if error is not None:
-            # TODO: what can we do?
-            self.close()
+            log.debug('listen failed: %d %s', convert_errno(error), pyuv.errno.strerror(error))
             return
         tcp_handle = pyuv.TCP(self._handle.loop)
         try:
             self._handle.accept(tcp_handle)
         except pyuv.error.TCPError:
-            # TODO: what can we do?
+            log.debug('accept failed: %d %s', convert_errno(e.args[0]), pyuv.errno.strerror(e.args[1]))
             tcp_handle.close()
         else:
             conn = self.connection_class(tcp_handle)

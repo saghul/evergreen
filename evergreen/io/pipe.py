@@ -143,14 +143,13 @@ class PipeServer(StreamServer):
 
     def __listen_cb(self, handle, error):
         if error is not None:
-            # TODO: what can we do?
-            self.close()
+            log.debug('listen failed: %d %s', convert_errno(error), pyuv.errno.strerror(error))
             return
         pipe_handle = pyuv.Pipe(self._handle.loop)
         try:
             self._handle.accept(pipe_handle)
-        except pyuv.error.PipeError:
-            # TODO: what can we do?
+        except pyuv.error.PipeError as e:
+            log.debug('accept failed: %d %s', convert_errno(e.args[0]), pyuv.errno.strerror(e.args[1]))
             pipe_handle.close()
         else:
             conn = self.connection_class(pipe_handle)
