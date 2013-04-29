@@ -7,6 +7,7 @@ import pyuv
 import evergreen
 from evergreen.io.stream import BaseStream, StreamError, StreamConnection, StreamServer
 from evergreen.io.util import Result, convert_errno
+from evergreen.log import log
 
 __all__ = ['PipeServer', 'PipeClient', 'PipeConnection', 'PipeError']
 
@@ -70,8 +71,8 @@ class PipeStream(BaseStream):
 
     def __write_cb(self, handle, error):
         if error is not None:
-            # TODO: save error?
-            self.close()
+            log.debug('write failed: %d %s', convert_errno(error), pyuv.errno.strerror(error))
+            evergreen.current.loop.call_soon(self.close)
 
     def __shutdown_cb(self, handle, error):
         self._handle.close()

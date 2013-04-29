@@ -10,6 +10,7 @@ import sys
 import evergreen
 from evergreen.io.stream import BaseStream, StreamError
 from evergreen.io.util import Result
+from evergreen.log import log
 
 __all__ = ['TTYStream', 'TTYError', 'StdinStream', 'StdoutStream', 'StderrStream']
 
@@ -86,8 +87,8 @@ class TTYStream(BaseStream):
 
     def __write_cb(self, handle, error):
         if error is not None:
-            # TODO: store error?
-            self.close()
+            log.debug('write failed: %d %s', convert_errno(error), pyuv.errno.strerror(error))
+            evergreen.current.loop.call_soon(self.close)
 
 
 def StdinStream(fd=None):
