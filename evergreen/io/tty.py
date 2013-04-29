@@ -29,7 +29,6 @@ class TTYStream(BaseStream):
         super(TTYStream, self).__init__()
         loop = evergreen.current.loop
         self._handle = pyuv.TTY(loop._loop, fd, readable)
-        self._read_result = Result()
         self._set_connected()
 
     @property
@@ -48,13 +47,24 @@ class TTYStream(BaseStream):
         self._handle.set_mode(raw)
 
     def _read(self, n):
+        read_result = Result()
+        def cb(handle, data, error):
+            self._handle.stop_read()
+            if error is not None:
+                if error != pyuv.errno.UV_EOF:
+                    read_result.set_exception(TTYError(error, pyuv.errno.strerror(error)))
+                else:
+                    read_result.set_result(b'')
+            else:
+                read_result.set_result(data)
+
         try:
-            self._handle.start_read(self.__read_cb)
+            self._handle.start_read(cb)
         except pyuv.error.TTYError as e:
             self.close()
             raise TTYError(e.args[0], e.args[1])
         try:
-            data = self._read_result.wait()
+            data = read_result.wait()
         except TTYError as e:
             self.close()
             raise
@@ -63,8 +73,6 @@ class TTYStream(BaseStream):
                 self.close()
                 return
             self._read_buffer.feed(data)
-        finally:
-            self._read_result.clear()
 
     def _write(self, data):
         try:
@@ -75,16 +83,6 @@ class TTYStream(BaseStream):
 
     def _close(self):
         self._handle.close()
-
-    def __read_cb(self, handle, data, error):
-        self._handle.stop_read()
-        if error is not None:
-            if error != pyuv.errno.UV_EOF:
-                self._read_result.set_exception(TTYError(error, pyuv.errno.strerror(error)))
-            else:
-                self._read_result.set_result(b'')
-        else:
-            self._read_result.set_result(data)
 
     def __write_cb(self, handle, error):
         if error is not None:

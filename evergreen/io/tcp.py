@@ -22,7 +22,6 @@ class TCPStream(BaseStream):
     def __init__(self, handle):
         super(TCPStream, self).__init__()
         self._handle = handle
-        self._read_result = Result()
 
     @property
     def readable(self):
@@ -43,13 +42,24 @@ class TCPStream(BaseStream):
         return self._handle.getpeername()
 
     def _read(self, n):
+        read_result = Result()
+        def cb(handle, data, error):
+            self._handle.stop_read()
+            if error is not None:
+                if error != pyuv.errno.UV_EOF:
+                    read_result.set_exception(TCPError(error, pyuv.errno.strerror(error)))
+                else:
+                    read_result.set_result(b'')
+            else:
+                read_result.set_result(data)
+
         try:
-            self._handle.start_read(self.__read_cb)
+            self._handle.start_read(cb)
         except pyuv.error.TCPError as e:
             self.close()
             raise TCPError(convert_errno(e.args[0]), e.args[1])
         try:
-            data = self._read_result.wait()
+            data = read_result.wait()
         except TCPError as e:
             self.close()
             raise
@@ -58,8 +68,6 @@ class TCPStream(BaseStream):
                 self.close()
                 return
             self._read_buffer.feed(data)
-        finally:
-            self._read_result.clear()
 
     def _write(self, data):
         try:
@@ -70,16 +78,6 @@ class TCPStream(BaseStream):
 
     def _close(self):
         self._handle.shutdown(self.__shutdown_cb)
-
-    def __read_cb(self, handle, data, error):
-        self._handle.stop_read()
-        if error is not None:
-            if error != pyuv.errno.UV_EOF:
-                self._read_result.set_exception(TCPError(error, pyuv.errno.strerror(error)))
-            else:
-                self._read_result.set_result(b'')
-        else:
-            self._read_result.set_result(data)
 
     def __write_cb(self, handle, error):
         if error is not None:
@@ -96,7 +94,6 @@ class TCPClient(TCPStream):
         loop = evergreen.current.loop
         handle = pyuv.TCP(loop._loop)
         super(TCPClient, self).__init__(handle)
-        self._connect_result = None
 
     def connect(self, target, source_address=None):
         if self._connected:
@@ -107,7 +104,14 @@ class TCPClient(TCPStream):
             raise TCPError(e)
         if not r:
             raise TCPError('getaddrinfo returned no result')
-        self._connect_result = Result()
+
+        connect_result = Result()
+        def cb(handle, error):
+            if error is not None:
+                connect_result.set_exception(TCPError(convert_errno(error), pyuv.errno.strerror(error)))
+            else:
+                connect_result.set_result(None)
+
         err = None
         loop = self._handle.loop
         for item in r:
@@ -120,32 +124,25 @@ class TCPClient(TCPStream):
             try:
                 if source_address:
                     handle.bind(source_address)
-                handle.connect(addr, self.__connect_cb)
+                handle.connect(addr, cb)
             except pyuv.error.TCPError as e:
                 err = TCPError(convert_errno(e.args[0]), e.args[1])
                 handle.close()
                 continue
             try:
-                self._connect_result.wait()
+                connect_result.wait()
             except TCPError as e:
                 err = e
                 handle.close()
-                self._connect_result.clear()
+                connect_result.clear()
                 continue
             else:
                 self._handle.close()
                 self._handle = handle
                 break
-        self._connect_result = None
         if err is not None:
             raise err
         self._set_connected()
-
-    def __connect_cb(self, handle, error):
-        if error is not None:
-            self._connect_result.set_exception(TCPError(convert_errno(error), pyuv.errno.strerror(error)))
-        else:
-            self._connect_result.set_result(None)
 
 
 class TCPConnection(TCPStream, StreamConnection):

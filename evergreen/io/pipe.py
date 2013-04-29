@@ -21,7 +21,6 @@ class PipeStream(BaseStream):
     def __init__(self, handle):
         super(PipeStream, self).__init__()
         self._handle = handle
-        self._read_result = Result()
 
     @property
     def readable(self):
@@ -32,13 +31,24 @@ class PipeStream(BaseStream):
         return self._handle.writable
 
     def _read(self, n):
+        read_result = Result()
+        def cb(handle, data, error):
+            self._handle.stop_read()
+            if error is not None:
+                if error != pyuv.errno.UV_EOF:
+                    read_result.set_exception(PipeError(convert_errno(error), pyuv.errno.strerror(error)))
+                else:
+                    read_result.set_result(b'')
+            else:
+                read_result.set_result(data)
+
         try:
-            self._handle.start_read(self.__read_cb)
+            self._handle.start_read(cb)
         except pyuv.error.PipeError as e:
             self.close()
             raise PipeError(convert_errno(e.args[0]), e.args[1])
         try:
-            data = self._read_result.wait()
+            data = read_result.wait()
         except PipeError as e:
             self.close()
             raise
@@ -47,8 +57,6 @@ class PipeStream(BaseStream):
                 self.close()
                 return
             self._read_buffer.feed(data)
-        finally:
-            self._read_result.clear()
 
     def _write(self, data):
         try:
@@ -59,16 +67,6 @@ class PipeStream(BaseStream):
 
     def _close(self):
         self._handle.shutdown(self.__shutdown_cb)
-
-    def __read_cb(self, handle, data, error):
-        self._handle.stop_read()
-        if error is not None:
-            if error != pyuv.errno.UV_EOF:
-                self._read_result.set_exception(PipeError(convert_errno(error), pyuv.errno.strerror(error)))
-            else:
-                self._read_result.set_result(b'')
-        else:
-            self._read_result.set_result(data)
 
     def __write_cb(self, handle, error):
         if error is not None:
@@ -89,31 +87,29 @@ class PipeClient(PipeStream):
         loop = evergreen.current.loop
         handle = pyuv.Pipe(loop._loop)
         super(PipeClient, self).__init__(handle)
-        self._connect_result = None
 
     def connect(self, target):
         if self._connected:
             raise PipeError('already connected')
-        self._connect_result = Result()
+
+        connect_result = Result()
+        def cb(handle, error):
+            if error is not None:
+                connect_result.set_exception(PipeError(convert_errno(error), pyuv.errno.strerror(error)))
+            else:
+                connect_result.set_result(None)
+
         try:
-            self._handle.connect(target, self.__connect_cb)
+            self._handle.connect(target, cb)
         except pyuv.error.PipeError as e:
             raise PipeError(convert_errno(e.args[0]), e.args[1])
         try:
-            self._connect_result.wait()
+            connect_result.wait()
         except PipeError:
             self.close()
             raise
         else:
             self._set_connected()
-        finally:
-            self._connect_result = None
-
-    def __connect_cb(self, handle, error):
-        if error is not None:
-            self._connect_result.set_exception(PipeError(convert_errno(error), pyuv.errno.strerror(error)))
-        else:
-            self._connect_result.set_result(None)
 
 
 class PipeServer(StreamServer):
