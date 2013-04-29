@@ -99,8 +99,9 @@ class TCPClient(TCPStream):
     def connect(self, target, source_address=None):
         if self._connected:
             raise TCPError('already connected')
+        host, port = target
         try:
-            r = socket.getaddrinfo(*target)
+            r = socket.getaddrinfo(host, port, socket.AF_UNSPEC, socket.SOCK_STREAM)
         except socket.error as e:
             raise TCPError(e)
         if not r:
