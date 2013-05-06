@@ -258,13 +258,17 @@ def _queue_manangement_worker(executor_reference,
         else:
             work_item = pending_work_items.pop(result_item.work_id)
             loop = work_item.loop
-            if result_item.exception:
-                loop.call_from_thread(work_item.future.set_exception, result_item.exception)
-            else:
-                loop.call_from_thread(work_item.future.set_result, result_item.result)
-            h = work_item.handler
-            loop.call_from_thread(h.cancel)
-            del result_item, work_item, loop, h
+            loop.call_from_thread(_set_work_result, work_item, result_item)
+            del result_item, work_item, loop
+
+
+def _set_work_result(work_item, result_item):
+    loop = work_item.loop
+    if result_item.exception:
+        work_item.future.set_exception(result_item.exception)
+    else:
+        work_item.future.set_result(result_item.result)
+    work_item.handler.cancel()
 
 
 class ProcessPoolExecutor(Executor):
