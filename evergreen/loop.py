@@ -394,6 +394,8 @@ class EventLoop(object):
             timer.close()
             self._timers.remove(timer)
             del timer.handler
+            if sys.platform == 'win32':
+                self._ticker.tick()
 
     def _signal_cb(self, signal_h, signum):
         self._ready.append(signal_h.handler)
