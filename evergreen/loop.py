@@ -355,12 +355,9 @@ class EventLoop(object):
 
     def _run_loop(self, forever=False):
         if forever:
-            handler = self.call_repeatedly(24*3600, lambda: None)
-        try:
-            self._loop.run(pyuv.UV_RUN_DEFAULT)
-        finally:
-            if forever:
-                handler.cancel()
+            self._ready_processor.ref()
+            self._waker.ref()
+        self._loop.run(pyuv.UV_RUN_DEFAULT)
 
     def _cleanup_loop(self):
         def cb(handle):
