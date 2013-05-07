@@ -141,6 +141,7 @@ class IOTests(EvergreenTestCase):
         def connect():
             client = pipe.PipeClient()
             client.connect(TEST_PIPE)
+            evergreen.sleep(0.1)  # git it some time to stabilize on Windows
             client.close()
             self.assertRaises(pipe.PipeError, client.read_until, b'\n')
             self.server.close()
