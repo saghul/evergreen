@@ -40,6 +40,13 @@ There are several ways of running the test suite:
   on Python 2.6, 2.7, 3.2 and 3.3 (you'll need to have them installed beforehand)
 
 
+CI status
+=========
+
+.. image:: https://secure.travis-ci.org/saghul/evergreen.png?branch=master
+    :target: http://travis-ci.org/saghul/evergreen
+
+
 Documentation
 =============
 
