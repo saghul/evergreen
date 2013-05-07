@@ -112,6 +112,7 @@ class IOTests(EvergreenTestCase):
         def connect():
             client = tcp.TCPClient()
             client.connect(TEST_CLIENT)
+            evergreen.sleep(0.1)  # give it some time to stabilize
             client.close()
             self.assertRaises(tcp.TCPError, client.read_until, b'\n')
             self.server.close()
@@ -141,7 +142,7 @@ class IOTests(EvergreenTestCase):
         def connect():
             client = pipe.PipeClient()
             client.connect(TEST_PIPE)
-            evergreen.sleep(0.1)  # git it some time to stabilize on Windows
+            evergreen.sleep(0.1)  # give it some time to stabilize
             client.close()
             self.assertRaises(pipe.PipeError, client.read_until, b'\n')
             self.server.close()
