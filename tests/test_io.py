@@ -18,7 +18,7 @@ TEST_SERVER = ('0.0.0.0', TEST_PORT)
 TEST_CLIENT = ('127.0.0.1', TEST_PORT)
 
 
-class EchoTCPServer(tcp.TCPServer):
+class EchoMixin(object):
 
     @evergreen.task
     def handle_connection(self, connection):
@@ -29,15 +29,12 @@ class EchoTCPServer(tcp.TCPServer):
             connection.write(data)
 
 
-class EchoPipeServer(pipe.PipeServer):
+class EchoTCPServer(EchoMixin, tcp.TCPServer):
+    pass
 
-    @evergreen.task
-    def handle_connection(self, connection):
-        while True:
-            data = connection.read_until(b'\n')
-            if not data:
-                break
-            connection.write(data)
+
+class EchoPipeServer(EchoMixin, pipe.PipeServer):
+    pass
 
 
 class BufferTest(unittest.TestCase):
