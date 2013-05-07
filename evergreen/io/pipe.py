@@ -23,14 +23,6 @@ class PipeStream(BaseStream):
         super(PipeStream, self).__init__()
         self._handle = handle
 
-    @property
-    def readable(self):
-        return self._handle.readable
-
-    @property
-    def writable(self):
-        return self._handle.writable
-
     def _read(self, n):
         read_result = Result()
         def cb(handle, data, error):

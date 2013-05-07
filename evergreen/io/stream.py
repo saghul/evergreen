@@ -56,14 +56,6 @@ class BaseStream(object):
         self._closed = True
 
     @property
-    def readable(self):
-        raise NotImplementedError
-
-    @property
-    def writable(self):
-        raise NotImplementedError
-
-    @property
     def closed(self):
         return self._closed
 

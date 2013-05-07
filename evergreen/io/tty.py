@@ -33,14 +33,6 @@ class TTYStream(BaseStream):
         self._set_connected()
 
     @property
-    def readable(self):
-        return self._handle.readable
-
-    @property
-    def writable(self):
-        return self._handle.writable
-
-    @property
     def winsize(self):
         return self._handle.get_winsize()
 

@@ -25,14 +25,6 @@ class TCPStream(BaseStream):
         self._handle = handle
 
     @property
-    def readable(self):
-        return self._handle.readable
-
-    @property
-    def writable(self):
-        return self._handle.writable
-
-    @property
     def sockname(self):
         self._check_closed()
         return self._handle.getsockname()
