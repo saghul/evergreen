@@ -15,7 +15,7 @@ else:
     TEST_PIPE = 'test-pipe'
 TEST_PORT = 1234
 TEST_SERVER = ('0.0.0.0', TEST_PORT)
-TEST_CLIENT = ('0.0.0.0', TEST_PORT)
+TEST_CLIENT = ('127.0.0.1', TEST_PORT)
 
 
 class EchoTCPServer(tcp.TCPServer):
