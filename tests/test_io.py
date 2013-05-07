@@ -23,7 +23,7 @@ class EchoTCPServer(tcp.TCPServer):
     @evergreen.task
     def handle_connection(self, connection):
         while True:
-            data = connection.read_until('\n')
+            data = connection.read_until(b'\n')
             if not data:
                 break
             connection.write(data)
@@ -34,7 +34,7 @@ class EchoPipeServer(pipe.PipeServer):
     @evergreen.task
     def handle_connection(self, connection):
         while True:
-            data = connection.read_until('\n')
+            data = connection.read_until(b'\n')
             if not data:
                 break
             connection.write(data)
