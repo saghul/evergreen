@@ -7,20 +7,12 @@ I/O utilities
 The io module provides utility classes for writing cooperative servers and clients
 in an easy way.
 
-.. note:: This module is still very experimental.
+.. note:: This module is still quite experimental, API changes are expected.
 
 
 .. py:class:: BaseStream()
 
     Basic class for defining a stream-like transport.
-
-    .. py:attribute:: readable
-
-        Returns True if the stream can be read from, False otherwise.
-
-    .. py:attribute:: writable
-
-        Returns True if the stream can be written to, False otherwise.
 
     .. py:attribute:: closed
 
@@ -170,6 +162,17 @@ in an easy way.
 
     Class representing a connection to a named pipe server.
 
+    .. py:method:: open(fd)
+
+        Opens the given file descriptor (or Windows HANDLE) and allows for using it as a
+        regular pipe stream.
+
+
+.. py:class:: PipeStream()
+
+    Class representing generic pipe stream. Currently it can only be used to open an arbitrary
+    file descriptor such as `/dev/net/tun` and treat it as a pipe stream.
+
 
 .. py:exception:: PipeError
 
@@ -185,6 +188,10 @@ in an easy way.
     .. py:attribute:: winsize
 
         Returns the current window size.
+
+    .. py:method:: set_raw_mode(enable)
+
+        If set to `True`, sets this TTY handle in raw mode.
 
 
 .. py:class:: StdinStream()
