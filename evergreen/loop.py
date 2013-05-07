@@ -391,6 +391,7 @@ class EventLoop(object):
             timer.close()
             self._timers.remove(timer)
             del timer.handler
+            # Workaround for https://github.com/joyent/libuv/issues/796
             if sys.platform == 'win32':
                 self._ticker.tick()
 
