@@ -36,7 +36,7 @@ class TTYStream(BaseStream):
     def winsize(self):
         return self._handle.get_winsize()
 
-    def set_mode(self, raw):
+    def set_raw_mode(self, raw):
         self._handle.set_mode(raw)
 
     def _read(self, n):
