@@ -9,18 +9,18 @@ from evergreen.io.stream import BaseStream, StreamError, StreamConnection, Strea
 from evergreen.io.util import Result, convert_errno
 from evergreen.log import log
 
-__all__ = ['PipeServer', 'PipeClient', 'PipeConnection', 'PipeError']
+__all__ = ['PipeServer', 'PipeClient', 'PipeConnection', 'PipeStream', 'PipeError']
 
 
 class PipeError(StreamError):
     pass
 
 
-class PipeStream(BaseStream):
+class BasePipeStream(BaseStream):
     error_class = PipeError
 
     def __init__(self, handle):
-        super(PipeStream, self).__init__()
+        super(BasePipeStream, self).__init__()
         self._handle = handle
 
     def _read(self, n):
@@ -70,11 +70,27 @@ class PipeStream(BaseStream):
         self._handle.close()
 
 
-class PipeConnection(PipeStream, StreamConnection):
+class PipeStream(BasePipeStream):
+
+    def __init__(self):
+        loop = evergreen.current.loop
+        handle = pyuv.Pipe(loop._loop)
+        super(PipeStream, self).__init__(handle)
+
+    def open(self, fd):
+        try:
+            self._handle.open(fd)
+        except pyuv.error.PipeError as e:
+            raise PipeError(convert_errno(e.args[0]), e.args[1])
+        else:
+            self._set_connected()
+
+
+class PipeConnection(BasePipeStream, StreamConnection):
     pass
 
 
-class PipeClient(PipeStream):
+class PipeClient(BasePipeStream):
 
     def __init__(self):
         loop = evergreen.current.loop
