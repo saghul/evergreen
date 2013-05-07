@@ -1,7 +1,9 @@
 
 from common import dummy, unittest, EvergreenTestCase
 
+import os
 import sys
+
 import evergreen
 from evergreen import futures
 
@@ -45,6 +47,9 @@ class FuturesTests(EvergreenTestCase):
         self.loop.run()
 
     def test_processpool_executor(self):
+        if 'TRAVIS' in os.environ:
+            self.skipTest('Disabled on Travis')
+            return
         if sys.platform == 'win32':
             self.skipTest('Temporarily disabled on Windows')
             return
