@@ -1,6 +1,7 @@
 
 from common import dummy, unittest, EvergreenTestCase
 
+import sys
 import evergreen
 from evergreen import futures
 
@@ -44,6 +45,9 @@ class FuturesTests(EvergreenTestCase):
         self.loop.run()
 
     def test_processpool_executor(self):
+        if sys.platform == 'win32':
+            self.skipTest('Temporarily disabled on Windows')
+            return
         executor = futures.ProcessPoolExecutor(5)
         def waiter():
             f = executor.submit(dummy)
