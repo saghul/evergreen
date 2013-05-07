@@ -1,0 +1,20 @@
+Version 0.0.2
+==============
+ - Added basic logger
+ - Added clear method to ReadBuffer
+ - Added PipeStream handle 
+ - Added initial tests for io module
+ - Added workaround for loop stalling on Windows
+ - Removed EventLoop.run_in_executor API
+ - Removed Pool module
+ - Removed readable / writable properties from io streams
+ - Fixed errors on Windows platform
+ - Prevent destroy() from being executed if the loop is not running
+ - Convert errnos in io.tcp module
+ - Allow hostnames in TCPClient.connect, use getaddrinfo to resolve them
+ - Updated documentation
+
+Version 0.0.1
+==============
+ - Initial release
+
