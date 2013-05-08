@@ -3,9 +3,10 @@
 #
 
 import evergreen
+
 from evergreen import six
+from evergreen.core.tasklets import tasklet, get_current, TaskletExit
 from evergreen.event import Event
-from evergreen._tasklet import tasklet, get_current, TaskletExit
 
 __all__ = ['Task', 'TaskExit', 'spawn', 'sleep', 'task']
 

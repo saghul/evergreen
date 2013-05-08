@@ -15,9 +15,9 @@ except ImportError:
 
 from collections import deque
 
-from evergreen._socketpair import SocketPair
-from evergreen._tasklet import tasklet, get_current, TaskletExit
-from evergreen._threadpool import ThreadPool
+from evergreen.core.socketpair import SocketPair
+from evergreen.core.tasklets import tasklet, get_current, TaskletExit
+from evergreen.core.threadpool import ThreadPool
 
 __all__ = ['EventLoop']
 

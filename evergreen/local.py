@@ -2,7 +2,7 @@
 # This file is part of Evergreen. See the NOTICE for more information.
 #
 
-from evergreen._tasklet import get_current
+from evergreen.core.tasklets import get_current
 
 __all__ = ['local']
 
