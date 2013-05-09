@@ -31,7 +31,7 @@ This module provides several functions to monkeypatch modules.
 .. py:function:: is_patched(module)
 
     Returns true if the given module is currently monkeypatched, false otherwise.
-    *Module* can be either the module object ot its name.
+    *Module* can be either the module object or its name.
 
 
 .. py:function:: import_patched(module, **additional_modules)
