@@ -7,8 +7,8 @@ Standard library compatible cooperative modules
 This module contains several API compatible and cooperative modules with some
 standard Python library modules.
 
-Only a subset of those is provided and it's **not** evergreen's intention to eventually
-provive alternatives to every module in the standard library.
+Only a subset of those is provided, and it's **not** evergreen's intention to eventually
+provide alternatives to every module in the standard library.
 
 Provided modules:
 

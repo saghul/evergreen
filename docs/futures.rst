@@ -5,7 +5,7 @@ Futures
 =======
 
 This module implements an (almost) API compatible `concurrent.futures` implementation
-which is copperative.
+which is cooperative.
 
 
 .. py:class:: Future

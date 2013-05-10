@@ -2,7 +2,7 @@
 Design
 ======
 
-The following sections contain en explanation the design of the
+The following sections contain an explanation of the design of the
 different parts that compose evergreen. Evergreen was inspired by similar
 libraries such as Gevent and Eventlet, but some of the key ideas
 are different:
@@ -21,12 +21,12 @@ Event loop
 ----------
 
 The event loop can be considered the central point of evergreen, it deals with timers,
-i/o and task scheduling (described later). The event loop API is heavily inspired
+I/O and task scheduling (described later). The event loop API is heavily inspired
 by PEP 3156, so it's possible that in the future the event loop implementation evergreen
 uses can be replaced. At the moment evergreen uses `puyv <https://github.com/saghul/pyuv>`_
 as the underlying event loop.
 
-In evergreen only one loop may exist per thread and it has to be manually created for threads
+In evergreen only one loop may exist per thread, and it has to be manually created for threads
 other than the main thread. This would be the structure of a normal program using evergreen:
 
 ::
@@ -43,7 +43,7 @@ other than the main thread. This would be the structure of a normal program usin
     loop.run()
 
 
-No tasks will start working until `loop.run` is called unless ablocking operation is performed,
+No tasks will start working until `loop.run` is called unless a blocking operation is performed,
 in which case the loop is automatically started. For long running processes such as servers, it's
 advised to explicitly create the event loop, setup tasks and manually run it. Small scripts can
 rely on the fact that the main thread's loop is automatically created and run when an opperation
@@ -53,7 +53,7 @@ cooperatively blocks.
 Tasks
 -----
 
-The cooperative task abstraction provided by evergreen (though the :class:`Task` class).
+The cooperative task abstraction provided by evergreen (through the :class:`Task` class).
 The public API for this class mimics that of a `threading.Thread` thread, but it's
 scheduled cooperatively.
 
@@ -64,7 +64,7 @@ Here are some 'rules' that apply to tasks:
 
 - Tasks don't yield control to each other, they must always yield control to the loop,
   or schedule a switch to the desired task in the loop, this ensures predictable
-  execution order and fairness
+  execution order and fairness.
 - In order to exchange values between tasks any of the provided synchronization
   primitives should be used, the tasks themselves don't provide any means to do it.
 

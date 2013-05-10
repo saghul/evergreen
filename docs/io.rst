@@ -41,7 +41,7 @@ in an easy way.
 
     .. py:method:: _set_connected
 
-        This method is part of the internap API. It sets the stream state to connected. Before a
+        This method is part of the internal API. It sets the stream state to connected. Before a
         stream is connected all write operations will be buffered and flushed once the stream
         is connected.
 
@@ -70,7 +70,7 @@ in an easy way.
 
     .. py:attribute:: connections
 
-        LIst of currently active connections.
+        List of currently active connections.
 
 
 .. py:class:: StreamConnection()

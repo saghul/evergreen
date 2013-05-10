@@ -5,14 +5,14 @@ The Event Loop
 ==============
 
 The event loop is the main entity in evergreen, together with tasks. It takes care of running
-all scheduled operations and provides time based callback scheduling as well as i/o readyness
+all scheduled operations and provides time based callback scheduling as well as I/O readyness
 based callback scheduling.
 
 
 .. py:class:: EventLoop
 
     This is the main class that sets things in motion in evergreen. I runs scheduled tasks,
-    timers and i/o operations. Only one event loop may exist per thread and it needs to be
+    timers and I/O operations. Only one event loop may exist per thread and it needs to be
     explicitly created for threads other than the main thread.
     The current loop can be accessed with `evergreen.current.loop`.
 
@@ -61,7 +61,7 @@ based callback scheduling.
     .. py:method:: add_signal_handler(signum, callback, \*args, \*\*kw)
 
         Create a handler which will run the given callback when the specified
-        signal is captured. Multiple handlders for the same signal can be added.
+        signal is captured. Multiple handlers for the same signal can be added.
         If the handler is cancelled, only *that* particular handler is removed.
 
     .. py:method:: remove_signal_handler(signum)
@@ -137,6 +137,6 @@ Handling signals
 
 While the `signal` module works just fine, it's better to use the signal handling
 functions provided by the `EventLoop`. It allows adding multiple handlers for the
-same signal, from different threads and the handlers are called in the approriate
+same signal, from different threads and the handlers are called in the appropriate
 thread (where they were added from).
 
