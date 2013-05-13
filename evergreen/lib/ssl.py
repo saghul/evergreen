@@ -13,7 +13,7 @@ from evergreen.lib.socket import error as socket_error, timeout as socket_timeou
 from evergreen.patcher import slurp_properties
 
 import ssl as __ssl__
-__patched__ = ['SSLSocket', 'wrap_socket', 'sslwrap_simple']
+__patched__ = ['SSLSocket', 'wrap_socket', 'socket', 'sslwrap_simple']
 
 slurp_properties(__ssl__, globals(), ignore=__patched__, srckeys=dir(__ssl__))
 del slurp_properties
