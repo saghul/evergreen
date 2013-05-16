@@ -110,10 +110,10 @@ class TCPClient(TCPStream):
         loop = self._handle.loop
         for item in r:
             addr = item[-1]
-            if '%' in addr[0]:
-                # Skip addresses such as 'fe80::1%lo0'
-                # TODO: handle this properly
-                continue
+            idx = addr[0].find(b'%')
+            if idx != -1:
+                host, rest = addr[0], addr[1:]
+                addr = (host[:idx],) + rest
             handle = pyuv.TCP(loop)
             try:
                 if source_address:
