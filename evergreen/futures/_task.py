@@ -2,10 +2,11 @@
 # This file is part of Evergreen. See the NOTICE for more information.
 #
 
+import evergreen
+
 from evergreen.futures._base import Executor, Future
 from evergreen.locks import Lock
 from evergreen.queue import Queue
-from evergreen.tasks import Task
 
 
 class _WorkItem(object):
@@ -55,9 +56,8 @@ class TaskPoolExecutor(Executor):
 
     def _adjust_task_count(self):
         if len(self._tasks) < self._max_workers:
-            t = Task(self._work)
+            t = evergreen.spawn(self._work)
             self._tasks.add(t)
-            t.start()
 
     def _work(self):
         while True:

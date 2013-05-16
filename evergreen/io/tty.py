@@ -8,8 +8,8 @@ import pyuv
 import sys
 
 import evergreen
+from evergreen.futures import Future
 from evergreen.io.stream import BaseStream, StreamError
-from evergreen.io.util import Result
 from evergreen.log import log
 
 __all__ = ['TTYStream', 'TTYError', 'StdinStream', 'StdoutStream', 'StderrStream']
@@ -40,7 +40,7 @@ class TTYStream(BaseStream):
         self._handle.set_mode(raw)
 
     def _read(self, n):
-        read_result = Result()
+        read_result = Future()
         def cb(handle, data, error):
             self._handle.stop_read()
             if error is not None:
@@ -57,7 +57,7 @@ class TTYStream(BaseStream):
             self.close()
             raise TTYError(e.args[0], e.args[1])
         try:
-            data = read_result.wait()
+            data = read_result.get()
         except TTYError as e:
             self.close()
             raise

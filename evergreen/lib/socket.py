@@ -489,22 +489,22 @@ SocketType = socket
 
 def gethostbyname(*args, **kw):
     loop = evergreen.current.loop
-    return loop._threadpool.spawn(__socket__.gethostbyname, *args, **kw).wait()
+    return loop._threadpool.spawn(__socket__.gethostbyname, *args, **kw).get()
 
 
 def gethostbyname_ex(*args, **kw):
     loop = evergreen.current.loop
-    return loop._threadpool.spawn(__socket__.gethostbyname_ex, *args, **kw).wait()
+    return loop._threadpool.spawn(__socket__.gethostbyname_ex, *args, **kw).get()
 
 
 def getnameinfo(*args, **kw):
     loop = evergreen.current.loop
-    return loop._threadpool.spawn(__socket__.getnameinfo, *args, **kw).wait()
+    return loop._threadpool.spawn(__socket__.getnameinfo, *args, **kw).get()
 
 
 def getaddrinfo(*args, **kw):
     loop = evergreen.current.loop
-    return loop._threadpool.spawn(__socket__.getaddrinfo, *args, **kw).wait()
+    return loop._threadpool.spawn(__socket__.getaddrinfo, *args, **kw).get()
 
 
 def create_connection(address, timeout=_GLOBAL_DEFAULT_TIMEOUT, source_address=None):

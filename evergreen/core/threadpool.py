@@ -6,6 +6,7 @@ import pyuv
 import sys
 
 from evergreen.event import Event
+from evergreen.futures import Future
 
 __all__ = ('ThreadPool')
 
@@ -31,53 +32,23 @@ class _Work(object):
             self.exc = sys.exc_info()
 
 
-class _Result(object):
-
-    def __init__(self):
-        self._result = None
-        self._exc = None
-        self._event = Event()
-        self._used = False
-
-    def wait(self):
-        if self._used:
-            raise RuntimeError('result object already used')
-        try:
-            self._event.wait()
-            if self._exc is not None:
-                raise self._exc
-            else:
-                return self._result
-        finally:
-            self._used = True
-            self._result = None
-            self._exc = None
-
-    def _set_result(self, result):
-        self._result = result
-        self._event.set()
-
-    def _set_exception(self, exc):
-        self._exc = exc
-        self._event.set()
-
-
 class ThreadPool(object):
 
     def __init__(self, loop):
         self.loop = loop
 
     def spawn(self, func, *args, **kwargs):
-        result = _Result()
+        fut = Future()
         work = _Work(func, *args, **kwargs)
         def after(error):
             if error is not None:
                 assert error == pyuv.errno.UV_ECANCELLED
                 return
             if work.exc is not None:
-                result._set_exception(work.exc)
+                fut.set_exception(work.exc)
             else:
-                result._set_result(work.result)
-        req = self.loop._loop.queue_work(work, after)
-        return result
+                fut.set_result(work.result)
+        fut.set_running_or_notify_cancel()
+        self.loop._loop.queue_work(work, after)
+        return fut
 

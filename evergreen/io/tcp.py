@@ -5,8 +5,9 @@
 import pyuv
 
 import evergreen
+from evergreen.futures import Future
 from evergreen.io.stream import BaseStream, StreamError, StreamConnection, StreamServer
-from evergreen.io.util import Result, convert_errno
+from evergreen.io.util import convert_errno
 from evergreen.lib import socket
 from evergreen.log import log
 
@@ -35,7 +36,7 @@ class TCPStream(BaseStream):
         return self._handle.getpeername()
 
     def _read(self, n):
-        read_result = Result()
+        read_result = Future()
         def cb(handle, data, error):
             self._handle.stop_read()
             if error is not None:
@@ -52,7 +53,7 @@ class TCPStream(BaseStream):
             self.close()
             raise TCPError(convert_errno(e.args[0]), e.args[1])
         try:
-            data = read_result.wait()
+            data = read_result.get()
         except TCPError as e:
             self.close()
             raise
@@ -99,22 +100,23 @@ class TCPClient(TCPStream):
         if not r:
             raise TCPError('getaddrinfo returned no result')
 
-        connect_result = Result()
         def cb(handle, error):
             if error is not None:
-                connect_result.set_exception(TCPError(convert_errno(error), pyuv.errno.strerror(error)))
+                handle.connect_result.set_exception(TCPError(convert_errno(error), pyuv.errno.strerror(error)))
             else:
-                connect_result.set_result(None)
+                handle.connect_result.set_result(None)
 
         err = None
         loop = self._handle.loop
         for item in r:
+            connect_result = Future()
             addr = item[-1]
             idx = addr[0].find('%')
             if idx != -1:
                 host, rest = addr[0], addr[1:]
                 addr = (host[:idx],) + rest
             handle = pyuv.TCP(loop)
+            handle.connect_result = connect_result
             try:
                 if source_address:
                     handle.bind(source_address)
@@ -124,13 +126,14 @@ class TCPClient(TCPStream):
                 handle.close()
                 continue
             try:
-                connect_result.wait()
+                connect_result.get()
             except TCPError as e:
                 err = e
                 handle.close()
-                connect_result.clear()
+                del handle.connect_result
                 continue
             else:
+                del handle.connect_result
                 self._handle.close()
                 self._handle = handle
                 break

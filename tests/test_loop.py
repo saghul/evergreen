@@ -135,7 +135,7 @@ class LoopTests(EvergreenTestCase):
             return threading.current_thread().ident
         def func():
             r = self.loop._threadpool.spawn(runner)
-            self.assertNotEqual(r.wait(), tid)
+            self.assertNotEqual(r.get(), tid)
         evergreen.spawn(func)
         self.loop.run()
 

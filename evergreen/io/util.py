@@ -10,7 +10,7 @@ from collections import deque
 from evergreen import six
 from evergreen.event import Event
 
-__all__ = ['ReadBuffer', 'Result', 'convert_errno']
+__all__ = ['ReadBuffer', 'convert_errno']
 
 
 class ReadBuffer(object):
@@ -137,54 +137,6 @@ class ReadBuffer(object):
             self._buf.appendleft(b''.join(prefix))
         if not self._buf:
             self._buf.appendleft(b'')
-
-
-class Result(object):
-
-    def __init__(self):
-        self._event = Event()
-        self._result = None
-        self._exception = None
-        self._used = False
-
-    def is_set(self):
-        return self._event.is_set()
-
-    def set_result(self, value):
-        if self.is_set():
-            raise RuntimeError('already set')
-        self._result = value
-        self._event.set()
-
-    def set_exception(self, exc):
-        if self.is_set():
-            raise RuntimeError('already set')
-        self._exception = exc
-        self._event.set()
-
-    def wait(self, timeout=None):
-        if self._used:
-            raise RuntimeError('already used, clear it in order to use it again')
-        self._event.wait(timeout)
-        try:
-            if self.is_set():
-                return self._get_result()
-            return None
-        finally:
-            self._result = self._exception = None
-
-    def clear(self):
-        self._event.clear()
-        self._result = None
-        self._exception = None
-        self._used = False
-
-    def _get_result(self):
-        self._used = True
-        if self._exception is not None:
-            six.reraise(type(self._exception), self._exception)
-        else:
-            return self._result
 
 
 def convert_errno(errorno):

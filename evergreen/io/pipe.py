@@ -5,8 +5,9 @@
 import pyuv
 
 import evergreen
+from evergreen.futures import Future
 from evergreen.io.stream import BaseStream, StreamError, StreamConnection, StreamServer
-from evergreen.io.util import Result, convert_errno
+from evergreen.io.util import convert_errno
 from evergreen.log import log
 
 __all__ = ['PipeServer', 'PipeClient', 'PipeConnection', 'PipeStream', 'PipeError']
@@ -24,7 +25,7 @@ class BasePipeStream(BaseStream):
         self._handle = handle
 
     def _read(self, n):
-        read_result = Result()
+        read_result = Future()
         def cb(handle, data, error):
             self._handle.stop_read()
             if error is not None:
@@ -41,7 +42,7 @@ class BasePipeStream(BaseStream):
             self.close()
             raise PipeError(convert_errno(e.args[0]), e.args[1])
         try:
-            data = read_result.wait()
+            data = read_result.get()
         except PipeError as e:
             self.close()
             raise
@@ -101,7 +102,7 @@ class PipeClient(BasePipeStream):
         if self._connected:
             raise PipeError('already connected')
 
-        connect_result = Result()
+        connect_result = Future()
         def cb(handle, error):
             if error is not None:
                 connect_result.set_exception(PipeError(convert_errno(error), pyuv.errno.strerror(error)))
@@ -113,7 +114,7 @@ class PipeClient(BasePipeStream):
         except pyuv.error.PipeError as e:
             raise PipeError(convert_errno(e.args[0]), e.args[1])
         try:
-            connect_result.wait()
+            connect_result.get()
         except PipeError:
             self.close()
             raise
