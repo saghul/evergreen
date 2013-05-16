@@ -110,7 +110,7 @@ class TCPClient(TCPStream):
         loop = self._handle.loop
         for item in r:
             addr = item[-1]
-            idx = addr[0].find(b'%')
+            idx = addr[0].find('%')
             if idx != -1:
                 host, rest = addr[0], addr[1:]
                 addr = (host[:idx],) + rest
