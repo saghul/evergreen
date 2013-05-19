@@ -163,6 +163,11 @@ class TasksTests(EvergreenTestCase):
 #        evergreen.spawn(func)
 #        self.loop.run()
 
+    def test_join_before_start(self):
+        t = evergreen.Task()
+        self.assertRaises(RuntimeError, t.join)
+        self.loop.run()
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
