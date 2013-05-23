@@ -44,8 +44,9 @@ class BaseStream(object):
         self._check_closed()
         if not self._connected:
             self._write_buffer.append(data)
+            return False
         else:
-            self._write(data)
+            return self._write(data)
 
     def close(self):
         if self._closed:

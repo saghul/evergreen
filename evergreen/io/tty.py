@@ -68,6 +68,7 @@ class TTYStream(BaseStream):
         except TTYError:
             self.close()
             raise
+        return self._handle.write_queue_size == 0
 
     def _close(self):
         self._handle.close()

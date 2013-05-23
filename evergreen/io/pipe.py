@@ -52,6 +52,7 @@ class BasePipeStream(BaseStream):
         except PipeError:
             self.close()
             raise
+        return self._handle.write_queue_size == 0
 
     def _close(self):
         self._handle.shutdown(self.__shutdown_cb)

@@ -96,7 +96,8 @@ class IOTests(EvergreenTestCase):
         def connect():
             client = tcp.TCPClient()
             client.connect(TEST_CLIENT)
-            client.write(b'PING\n')
+            r = client.write(b'PING\n')
+            self.assertTrue(r)
             data = client.read_until(b'\n')
             self.assertEqual(data, b'PING\n')
             client.close()
