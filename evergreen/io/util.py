@@ -4,9 +4,6 @@
 
 from collections import deque
 
-from evergreen import six
-from evergreen.event import Event
-
 __all__ = ['ReadBuffer']
 
 
