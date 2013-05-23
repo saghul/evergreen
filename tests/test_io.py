@@ -118,6 +118,20 @@ class IOTests(EvergreenTestCase):
         evergreen.spawn(connect)
         self.loop.run()
 
+    def test_tcp_shutdown(self):
+        def connect():
+            client = tcp.TCPClient()
+            client.connect(TEST_CLIENT)
+            while True:
+                if not client.write(b'PING\n'):
+                    break
+            client.shutdown()
+            client.close()
+            self.server.close()
+        evergreen.spawn(self._start_tcp_echo_server)
+        evergreen.spawn(connect)
+        self.loop.run()
+
     def _start_pipe_echo_server(self):
         self.server = EchoPipeServer()
         self.server.bind(TEST_PIPE)

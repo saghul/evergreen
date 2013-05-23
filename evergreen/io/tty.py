@@ -70,13 +70,23 @@ class TTYStream(BaseStream):
             raise
         return self._handle.write_queue_size == 0
 
-    def _close(self):
-        self._handle.close()
-
     def __write_cb(self, handle, error):
         if error is not None:
             log.debug('write failed: %d %s', error, pyuv.errno.strerror(error))
             evergreen.current.loop.call_soon(self.close)
+
+    def _shutdown(self):
+        result = Future()
+        def cb(handle, error):
+            if error is not None:
+                result.set_exception(TTYError(error, pyuv.errno.strerror(error)))
+            else:
+                result.set_result(None)
+        self._handle.shutdown(cb)
+        result.get()
+
+    def _close(self):
+        self._handle.close()
 
 
 def StdinStream(fd=None):

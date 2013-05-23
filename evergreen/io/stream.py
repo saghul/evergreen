@@ -48,6 +48,10 @@ class BaseStream(object):
         else:
             return self._write(data)
 
+    def shutdown(self):
+        self._check_closed()
+        self._shutdown()
+
     def close(self):
         if self._closed:
             return
@@ -99,6 +103,9 @@ class BaseStream(object):
         raise NotImplementedError
 
     def _write(self, data):
+        raise NotImplementedError
+
+    def _shutdown(self):
         raise NotImplementedError
 
     def _close(self):
