@@ -4,10 +4,10 @@
 
 from collections import deque
 
-__all__ = ['ReadBuffer']
+__all__ = ['StringBuffer']
 
 
-class ReadBuffer(object):
+class StringBuffer(object):
 
     def __init__(self, max_size=100*1024*1024):
         self._max_size = max_size

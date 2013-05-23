@@ -6,7 +6,7 @@ import sys
 
 import evergreen
 from evergreen.io import tcp, pipe
-from evergreen.io.util import ReadBuffer
+from evergreen.io.util import StringBuffer
 
 
 if sys.platform == 'win32':
@@ -40,7 +40,7 @@ class EchoPipeServer(EchoMixin, pipe.PipeServer):
 class BufferTest(unittest.TestCase):
 
     def test_read(self):
-        buf = ReadBuffer()
+        buf = StringBuffer()
         buf.feed(b'hello world')
         data = buf.read(5)
         self.assertEqual(data, b'hello')
@@ -50,7 +50,7 @@ class BufferTest(unittest.TestCase):
         self.assertEqual(data, None)
 
     def test_read_until(self):
-        buf = ReadBuffer()
+        buf = StringBuffer()
         buf.feed(b'hello\nworld\n')
         data = buf.read_until(b'\n')
         self.assertEqual(data, b'hello\n')
@@ -61,7 +61,7 @@ class BufferTest(unittest.TestCase):
 
     def test_read_until_regex(self):
         regex = re.compile(b'~~')
-        buf = ReadBuffer()
+        buf = StringBuffer()
         buf.feed(b'hello~~world~~')
         data = buf.read_until_regex(regex)
         self.assertEqual(data, b'hello~~')
@@ -71,14 +71,14 @@ class BufferTest(unittest.TestCase):
         self.assertEqual(data, None)
 
     def test_clear(self):
-        buf = ReadBuffer()
+        buf = StringBuffer()
         buf.feed(b'hello world')
         buf.clear()
         data = buf.read(5)
         self.assertEqual(data, None)
 
     def test_close(self):
-        buf = ReadBuffer()
+        buf = StringBuffer()
         buf.feed(b'hello world')
         buf.close()
         self.assertTrue(buf.closed)

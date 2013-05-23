@@ -8,7 +8,7 @@ import socket
 
 from evergreen import six
 from evergreen.event import Event
-from evergreen.io.util import ReadBuffer
+from evergreen.io.util import StringBuffer
 
 __all__ = ['BaseStream', 'StreamConnection', 'StreamServer', 'StreamError']
 
@@ -23,7 +23,7 @@ class BaseStream(object):
     READ_CHUNK_SIZE = 4*1024
 
     def __init__(self):
-        self._read_buffer = ReadBuffer(self.MAX_BUFFER_SIZE)
+        self._read_buffer = StringBuffer(self.MAX_BUFFER_SIZE)
         self._write_buffer = []
 
         self._connected = False
