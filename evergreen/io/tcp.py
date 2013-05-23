@@ -6,16 +6,15 @@ import pyuv
 
 import evergreen
 from evergreen.futures import Future
-from evergreen.io.stream import BaseStream, StreamError, StreamConnection, StreamServer
-from evergreen.io.util import convert_errno
+from evergreen.io import errno
+from evergreen.io.stream import BaseStream, StreamConnection, StreamServer
 from evergreen.lib import socket
 from evergreen.log import log
 
 __all__ = ['TCPServer', 'TCPClient', 'TCPConnection', 'TCPError']
 
 
-class TCPError(StreamError):
-    pass
+TCPError = pyuv.error.TCPError
 
 
 class TCPStream(BaseStream):
@@ -40,42 +39,37 @@ class TCPStream(BaseStream):
         def cb(handle, data, error):
             self._handle.stop_read()
             if error is not None:
-                if error != pyuv.errno.UV_EOF:
-                    read_result.set_exception(TCPError(error, pyuv.errno.strerror(error)))
-                else:
-                    read_result.set_result(b'')
+                read_result.set_exception(TCPError(error, pyuv.errno.strerror(error)))
             else:
                 read_result.set_result(data)
 
         try:
             self._handle.start_read(cb)
-        except pyuv.error.TCPError as e:
+        except TCPError:
             self.close()
-            raise TCPError(convert_errno(e.args[0]), e.args[1])
+            raise
         try:
             data = read_result.get()
         except TCPError as e:
             self.close()
-            raise
+            if e.args[0] != errno.EOF:
+                raise
         else:
-            if not data:
-                self.close()
-                return
             self._read_buffer.feed(data)
 
     def _write(self, data):
         try:
             self._handle.write(data, self.__write_cb)
-        except pyuv.error.TCPError as e:
+        except TCPError:
             self.close()
-            raise TCPError(convert_errno(e.args[0]), e.args[1])
+            raise
 
     def _close(self):
         self._handle.shutdown(self.__shutdown_cb)
 
     def __write_cb(self, handle, error):
         if error is not None:
-            log.debug('write failed: %d %s', convert_errno(error), pyuv.errno.strerror(error))
+            log.debug('write failed: %d %s', error, pyuv.errno.strerror(error))
             evergreen.current.loop.call_soon(self.close)
 
     def __shutdown_cb(self, handle, error):
@@ -102,7 +96,7 @@ class TCPClient(TCPStream):
 
         def cb(handle, error):
             if error is not None:
-                handle.connect_result.set_exception(TCPError(convert_errno(error), pyuv.errno.strerror(error)))
+                handle.connect_result.set_exception(TCPError(error, pyuv.errno.strerror(error)))
             else:
                 handle.connect_result.set_result(None)
 
@@ -121,8 +115,8 @@ class TCPClient(TCPStream):
                 if source_address:
                     handle.bind(source_address)
                 handle.connect(addr, cb)
-            except pyuv.error.TCPError as e:
-                err = TCPError(convert_errno(e.args[0]), e.args[1])
+            except TCPError as e:
+                err = e
                 handle.close()
                 continue
             try:
@@ -164,23 +158,20 @@ class TCPServer(StreamServer):
         self._handle.bind(address)
 
     def _serve(self, backlog):
-        try:
-            self._handle.listen(self.__listen_cb, backlog)
-        except pyuv.error.TCPError as e:
-            raise TCPError(convert_errno(e.args[0]), e.args[1])
+        self._handle.listen(self.__listen_cb, backlog)
 
     def _close(self):
         self._handle.close()
 
     def __listen_cb(self, handle, error):
         if error is not None:
-            log.debug('listen failed: %d %s', convert_errno(error), pyuv.errno.strerror(error))
+            log.debug('listen failed: %d %s', error, pyuv.errno.strerror(error))
             return
         tcp_handle = pyuv.TCP(self._handle.loop)
         try:
             self._handle.accept(tcp_handle)
-        except pyuv.error.TCPError:
-            log.debug('accept failed: %d %s', convert_errno(e.args[0]), pyuv.errno.strerror(e.args[1]))
+        except TCPError as e:
+            log.debug('accept failed: %d %s', e.args[0], pyuv.errno.strerror(e.args[1]))
             tcp_handle.close()
         else:
             conn = self.connection_class(tcp_handle)

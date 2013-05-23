@@ -2,15 +2,12 @@
 # This file is part of Evergreen. See the NOTICE for more information.
 #
 
-import errno
-import pyuv
-
 from collections import deque
 
 from evergreen import six
 from evergreen.event import Event
 
-__all__ = ['ReadBuffer', 'convert_errno']
+__all__ = ['ReadBuffer']
 
 
 class ReadBuffer(object):
@@ -138,9 +135,4 @@ class ReadBuffer(object):
         if not self._buf:
             self._buf.appendleft(b'')
 
-
-def convert_errno(errorno):
-    # Convert 2 -> UV_EADDRINFO -> EADDRINFO -> (code for EADDRINFO)
-    code = pyuv.errno.errorcode[errorno][3:]
-    return getattr(errno, code, -1)
 

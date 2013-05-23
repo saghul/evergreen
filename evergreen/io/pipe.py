@@ -6,15 +6,14 @@ import pyuv
 
 import evergreen
 from evergreen.futures import Future
-from evergreen.io.stream import BaseStream, StreamError, StreamConnection, StreamServer
-from evergreen.io.util import convert_errno
+from evergreen.io import errno
+from evergreen.io.stream import BaseStream, StreamConnection, StreamServer
 from evergreen.log import log
 
 __all__ = ['PipeServer', 'PipeClient', 'PipeConnection', 'PipeStream', 'PipeError']
 
 
-class PipeError(StreamError):
-    pass
+PipeError = pyuv.error.PipeError
 
 
 class BasePipeStream(BaseStream):
@@ -29,42 +28,37 @@ class BasePipeStream(BaseStream):
         def cb(handle, data, error):
             self._handle.stop_read()
             if error is not None:
-                if error != pyuv.errno.UV_EOF:
-                    read_result.set_exception(PipeError(convert_errno(error), pyuv.errno.strerror(error)))
-                else:
-                    read_result.set_result(b'')
+                read_result.set_exception(PipeError(error, pyuv.errno.strerror(error)))
             else:
                 read_result.set_result(data)
 
         try:
             self._handle.start_read(cb)
-        except pyuv.error.PipeError as e:
+        except PipeError:
             self.close()
-            raise PipeError(convert_errno(e.args[0]), e.args[1])
+            raise
         try:
             data = read_result.get()
         except PipeError as e:
             self.close()
-            raise
+            if e.args[0] != errno.EOF:
+                raise
         else:
-            if not data:
-                self.close()
-                return
             self._read_buffer.feed(data)
 
     def _write(self, data):
         try:
             self._handle.write(data, self.__write_cb)
-        except pyuv.error.PipeError as e:
+        except PipeError:
             self.close()
-            raise PipeError(convert_errno(e.args[0]), e.args[1])
+            raise
 
     def _close(self):
         self._handle.shutdown(self.__shutdown_cb)
 
     def __write_cb(self, handle, error):
         if error is not None:
-            log.debug('write failed: %d %s', convert_errno(error), pyuv.errno.strerror(error))
+            log.debug('write failed: %d %s', error, pyuv.errno.strerror(error))
             evergreen.current.loop.call_soon(self.close)
 
     def __shutdown_cb(self, handle, error):
@@ -79,12 +73,8 @@ class PipeStream(BasePipeStream):
         super(PipeStream, self).__init__(handle)
 
     def open(self, fd):
-        try:
-            self._handle.open(fd)
-        except pyuv.error.PipeError as e:
-            raise PipeError(convert_errno(e.args[0]), e.args[1])
-        else:
-            self._set_connected()
+        self._handle.open(fd)
+        self._set_connected()
 
 
 class PipeConnection(BasePipeStream, StreamConnection):
@@ -105,14 +95,15 @@ class PipeClient(BasePipeStream):
         connect_result = Future()
         def cb(handle, error):
             if error is not None:
-                connect_result.set_exception(PipeError(convert_errno(error), pyuv.errno.strerror(error)))
+                connect_result.set_exception(PipeError(error, pyuv.errno.strerror(error)))
             else:
                 connect_result.set_result(None)
 
         try:
             self._handle.connect(target, cb)
-        except pyuv.error.PipeError as e:
-            raise PipeError(convert_errno(e.args[0]), e.args[1])
+        except PipeError:
+            self.close()
+            raise
         try:
             connect_result.get()
         except PipeError:
@@ -142,23 +133,20 @@ class PipeServer(StreamServer):
         self._name = name
 
     def _serve(self, backlog):
-        try:
-            self._handle.listen(self.__listen_cb, backlog)
-        except pyuv.error.PipeError as e:
-            raise PipeError(convert_errno(e.args[0]), e.args[1])
+        self._handle.listen(self.__listen_cb, backlog)
 
     def _close(self):
         self._handle.close()
 
     def __listen_cb(self, handle, error):
         if error is not None:
-            log.debug('listen failed: %d %s', convert_errno(error), pyuv.errno.strerror(error))
+            log.debug('listen failed: %d %s', error, pyuv.errno.strerror(error))
             return
         pipe_handle = pyuv.Pipe(self._handle.loop)
         try:
             self._handle.accept(pipe_handle)
-        except pyuv.error.PipeError as e:
-            log.debug('accept failed: %d %s', convert_errno(e.args[0]), pyuv.errno.strerror(e.args[1]))
+        except PipeError as e:
+            log.debug('accept failed: %d %s', e.args[0], pyuv.errno.strerror(e.args[1]))
             pipe_handle.close()
         else:
             conn = self.connection_class(pipe_handle)

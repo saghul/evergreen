@@ -2,6 +2,7 @@
 # This file is part of Evergreen. See the NOTICE for more information.
 #
 
+import pyuv
 import re
 import socket
 
@@ -12,12 +13,11 @@ from evergreen.io.util import ReadBuffer
 __all__ = ['BaseStream', 'StreamConnection', 'StreamServer', 'StreamError']
 
 
-class StreamError(Exception):
-    pass
+StreamError = pyuv.error.StreamError
 
 
 class BaseStream(object):
-    error_class = StreamError
+    error_class = None  # to be defined by subclass
 
     MAX_BUFFER_SIZE = 100*1024*1024
     READ_CHUNK_SIZE = 4*1024
@@ -124,7 +124,7 @@ class StreamConnection(BaseStream):
 
 
 class StreamServer(object):
-    error_class = StreamError
+    error_class = None  # to be defined by subclass
 
     def __init__(self):
         self._end_event = Event()

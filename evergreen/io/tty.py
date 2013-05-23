@@ -9,7 +9,8 @@ import sys
 
 import evergreen
 from evergreen.futures import Future
-from evergreen.io.stream import BaseStream, StreamError
+from evergreen.io import errno
+from evergreen.io.stream import BaseStream
 from evergreen.log import log
 
 __all__ = ['TTYStream', 'TTYError', 'StdinStream', 'StdoutStream', 'StderrStream']
@@ -19,8 +20,7 @@ __all__ = ['TTYStream', 'TTYError', 'StdinStream', 'StdoutStream', 'StderrStream
 atexit.register(pyuv.TTY.reset_mode)
 
 
-class TTYError(StreamError):
-    pass
+TTYError = pyuv.error.TTYError
 
 
 class TTYStream(BaseStream):
@@ -44,42 +44,37 @@ class TTYStream(BaseStream):
         def cb(handle, data, error):
             self._handle.stop_read()
             if error is not None:
-                if error != pyuv.errno.UV_EOF:
-                    read_result.set_exception(TTYError(error, pyuv.errno.strerror(error)))
-                else:
-                    read_result.set_result(b'')
+                read_result.set_exception(TTYError(error, pyuv.errno.strerror(error)))
             else:
                 read_result.set_result(data)
 
         try:
             self._handle.start_read(cb)
-        except pyuv.error.TTYError as e:
+        except TTYError:
             self.close()
-            raise TTYError(e.args[0], e.args[1])
+            raise
         try:
             data = read_result.get()
         except TTYError as e:
             self.close()
-            raise
+            if e.args[0] != errno.EOF:
+                raise
         else:
-            if not data:
-                self.close()
-                return
             self._read_buffer.feed(data)
 
     def _write(self, data):
         try:
             self._handle.write(data, self.__write_cb)
-        except pyuv.error.TTYError as e:
+        except TTYError:
             self.close()
-            raise TTYError(e.args[0], e.args[1])
+            raise
 
     def _close(self):
         self._handle.close()
 
     def __write_cb(self, handle, error):
         if error is not None:
-            log.debug('write failed: %d %s', convert_errno(error), pyuv.errno.strerror(error))
+            log.debug('write failed: %d %s', error, pyuv.errno.strerror(error))
             evergreen.current.loop.call_soon(self.close)
 
 
