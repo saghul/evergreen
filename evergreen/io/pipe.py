@@ -6,7 +6,6 @@ import pyuv
 
 import evergreen
 from evergreen.futures import Future
-from evergreen.io import errno
 from evergreen.io.stream import BaseStream, StreamConnection, StreamServer
 from evergreen.log import log
 
@@ -22,55 +21,6 @@ class BasePipeStream(BaseStream):
     def __init__(self, handle):
         super(BasePipeStream, self).__init__()
         self._handle = handle
-
-    def _read(self, n):
-        read_result = Future()
-        def cb(handle, data, error):
-            self._handle.stop_read()
-            if error is not None:
-                read_result.set_exception(PipeError(error, pyuv.errno.strerror(error)))
-            else:
-                read_result.set_result(data)
-
-        try:
-            self._handle.start_read(cb)
-        except PipeError:
-            self.close()
-            raise
-        try:
-            data = read_result.get()
-        except PipeError as e:
-            self.close()
-            if e.args[0] != errno.EOF:
-                raise
-        else:
-            self._read_buffer.feed(data)
-
-    def _write(self, data):
-        try:
-            self._handle.write(data, self.__write_cb)
-        except PipeError:
-            self.close()
-            raise
-        return self._handle.write_queue_size == 0
-
-    def __write_cb(self, handle, error):
-        if error is not None:
-            log.debug('write failed: %d %s', error, pyuv.errno.strerror(error))
-            evergreen.current.loop.call_soon(self.close)
-
-    def _shutdown(self):
-        result = Future()
-        def cb(handle, error):
-            if error is not None:
-                result.set_exception(PipeError(error, pyuv.errno.strerror(error)))
-            else:
-                result.set_result(None)
-        self._handle.shutdown(cb)
-        result.get()
-
-    def _close(self):
-        self._handle.close()
 
 
 class PipeStream(BasePipeStream):

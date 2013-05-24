@@ -8,10 +8,7 @@ import pyuv
 import sys
 
 import evergreen
-from evergreen.futures import Future
-from evergreen.io import errno
 from evergreen.io.stream import BaseStream
-from evergreen.log import log
 
 __all__ = ['TTYStream', 'TTYError', 'StdinStream', 'StdoutStream', 'StderrStream']
 
@@ -38,55 +35,6 @@ class TTYStream(BaseStream):
 
     def set_raw_mode(self, raw):
         self._handle.set_mode(raw)
-
-    def _read(self, n):
-        read_result = Future()
-        def cb(handle, data, error):
-            self._handle.stop_read()
-            if error is not None:
-                read_result.set_exception(TTYError(error, pyuv.errno.strerror(error)))
-            else:
-                read_result.set_result(data)
-
-        try:
-            self._handle.start_read(cb)
-        except TTYError:
-            self.close()
-            raise
-        try:
-            data = read_result.get()
-        except TTYError as e:
-            self.close()
-            if e.args[0] != errno.EOF:
-                raise
-        else:
-            self._read_buffer.feed(data)
-
-    def _write(self, data):
-        try:
-            self._handle.write(data, self.__write_cb)
-        except TTYError:
-            self.close()
-            raise
-        return self._handle.write_queue_size == 0
-
-    def __write_cb(self, handle, error):
-        if error is not None:
-            log.debug('write failed: %d %s', error, pyuv.errno.strerror(error))
-            evergreen.current.loop.call_soon(self.close)
-
-    def _shutdown(self):
-        result = Future()
-        def cb(handle, error):
-            if error is not None:
-                result.set_exception(TTYError(error, pyuv.errno.strerror(error)))
-            else:
-                result.set_result(None)
-        self._handle.shutdown(cb)
-        result.get()
-
-    def _close(self):
-        self._handle.close()
 
 
 def StdinStream(fd=None):

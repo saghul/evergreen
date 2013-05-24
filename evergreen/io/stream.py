@@ -2,21 +2,29 @@
 # This file is part of Evergreen. See the NOTICE for more information.
 #
 
+import abc
 import pyuv
 import re
 import socket
 
+import evergreen
 from evergreen import six
 from evergreen.event import Event
+from evergreen.futures import Future
+from evergreen.io import errno
 from evergreen.io.util import StringBuffer
+from evergreen.log import log
 
-__all__ = ['BaseStream', 'StreamConnection', 'StreamServer', 'StreamError']
+__all__ = ['AbstractBaseStream', 'BaseStream', 'StreamConnection', 'StreamServer', 'StreamError']
 
 
 StreamError = pyuv.error.StreamError
 
 
-class BaseStream(object):
+class AbstractBaseStream(six.with_metaclass(abc.ABCMeta)):
+    """Abstract base class for a stream-like object
+    """
+
     error_class = None  # to be defined by subclass
 
     MAX_BUFFER_SIZE = 100*1024*1024
@@ -99,17 +107,74 @@ class BaseStream(object):
 
     # internal, to be implemented by subclasses
 
+    @abc.abstractmethod
     def _read(self, n):
         raise NotImplementedError
 
+    @abc.abstractmethod
     def _write(self, data):
         raise NotImplementedError
 
+    @abc.abstractmethod
     def _shutdown(self):
         raise NotImplementedError
 
+    @abc.abstractmethod
     def _close(self):
         raise NotImplementedError
+
+
+class BaseStream(AbstractBaseStream):
+    """Base class for streams implemented using pyuv Stream objects as the underlying mechanism
+    """
+
+    def _read(self, n):
+        read_result = Future()
+        def cb(handle, data, error):
+            self._handle.stop_read()
+            if error is not None:
+                read_result.set_exception(self.error_class(error, pyuv.errno.strerror(error)))
+            else:
+                read_result.set_result(data)
+        try:
+            self._handle.start_read(cb)
+        except self.error_class:
+            self.close()
+            raise
+        try:
+            data = read_result.get()
+        except self.error_class as e:
+            self.close()
+            if e.args[0] != errno.EOF:
+                raise
+        else:
+            self._read_buffer.feed(data)
+
+    def _write(self, data):
+        try:
+            self._handle.write(data, self.__write_cb)
+        except self.error_class:
+            self.close()
+            raise
+        return self._handle.write_queue_size == 0
+
+    def __write_cb(self, handle, error):
+        if error is not None:
+            log.debug('write failed: %d %s', error, pyuv.errno.strerror(error))
+            evergreen.current.loop.call_soon(self.close)
+
+    def _shutdown(self):
+        result = Future()
+        def cb(handle, error):
+            if error is not None:
+                result.set_exception(self.error_class(error, pyuv.errno.strerror(error)))
+            else:
+                result.set_result(None)
+        self._handle.shutdown(cb)
+        result.get()
+
+    def _close(self):
+        self._handle.close()
 
 
 class StreamConnection(BaseStream):
