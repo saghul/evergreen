@@ -1,3 +1,13 @@
+Version 0.0.4
+==============
+ - Added return value to Stream.write
+ - Added Stream.shutdown API
+ - Fixed using scoped IPv6 adresses
+ - Raise RuntimeError if task is joined before start
+ - Refactored error handling in io module
+ - Raised pyuv version dependency
+ - Updated documentation
+
 Version 0.0.3
 ==============
  - Fixed monkeypatching SSLSocket object
@@ -8,7 +18,7 @@ Version 0.0.2
 ==============
  - Added basic logger
  - Added clear method to ReadBuffer
- - Added PipeStream handle 
+ - Added PipeStream handle
  - Added initial tests for io module
  - Added workaround for loop stalling on Windows
  - Removed EventLoop.run_in_executor API
