@@ -6,6 +6,7 @@ import pyuv
 
 
 errorcode = {}
+strerror = pyuv.errno.strerror
 
 def _bootstrap():
     g = globals()
