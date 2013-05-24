@@ -16,7 +16,7 @@ PipeError = pyuv.error.PipeError
 
 
 class BasePipeStream(BaseStream):
-    error_class = PipeError
+    error_cls = PipeError
 
     def __init__(self, handle):
         super(BasePipeStream, self).__init__()
@@ -72,8 +72,8 @@ class PipeClient(BasePipeStream):
 
 
 class PipeServer(StreamServer):
-    connection_class = PipeConnection
-    error_class = PipeError
+    connection_cls = PipeConnection
+    error_cls = PipeError
 
     def __init__(self):
         super(PipeServer, self).__init__()
@@ -107,7 +107,7 @@ class PipeServer(StreamServer):
             log.debug('accept failed: %d %s', e.args[0], pyuv.errno.strerror(e.args[1]))
             pipe_handle.close()
         else:
-            conn = self.connection_class(pipe_handle)
+            conn = self.connection_cls(pipe_handle)
             conn._set_accepted(self)
             self.handle_connection(conn)
 

@@ -25,7 +25,7 @@ class AbstractBaseStream(six.with_metaclass(abc.ABCMeta)):
     """Abstract base class for a stream-like object
     """
 
-    error_class = None  # to be defined by subclass
+    error_cls = None  # to be defined by subclass
 
     MAX_BUFFER_SIZE = 100*1024*1024
     READ_CHUNK_SIZE = 4*1024
@@ -103,7 +103,7 @@ class AbstractBaseStream(six.with_metaclass(abc.ABCMeta)):
 
     def _check_closed(self):
         if self._closed:
-            raise self.error_class('stream is closed')
+            raise self.error_cls('stream is closed')
 
     # internal, to be implemented by subclasses
 
@@ -133,17 +133,17 @@ class BaseStream(AbstractBaseStream):
         def cb(handle, data, error):
             self._handle.stop_read()
             if error is not None:
-                read_result.set_exception(self.error_class(error, pyuv.errno.strerror(error)))
+                read_result.set_exception(self.error_cls(error, pyuv.errno.strerror(error)))
             else:
                 read_result.set_result(data)
         try:
             self._handle.start_read(cb)
-        except self.error_class:
+        except self.error_cls:
             self.close()
             raise
         try:
             data = read_result.get()
-        except self.error_class as e:
+        except self.error_cls as e:
             self.close()
             if e.args[0] != errno.EOF:
                 raise
@@ -153,7 +153,7 @@ class BaseStream(AbstractBaseStream):
     def _write(self, data):
         try:
             self._handle.write(data, self.__write_cb)
-        except self.error_class:
+        except self.error_cls:
             self.close()
             raise
         return self._handle.write_queue_size == 0
@@ -167,7 +167,7 @@ class BaseStream(AbstractBaseStream):
         result = Future()
         def cb(handle, error):
             if error is not None:
-                result.set_exception(self.error_class(error, pyuv.errno.strerror(error)))
+                result.set_exception(self.error_cls(error, pyuv.errno.strerror(error)))
             else:
                 result.set_result(None)
         self._handle.shutdown(cb)
@@ -197,7 +197,7 @@ class StreamConnection(BaseStream):
 
 
 class StreamServer(object):
-    error_class = None  # to be defined by subclass
+    error_cls = None  # to be defined by subclass
 
     def __init__(self):
         self._end_event = Event()
@@ -227,7 +227,7 @@ class StreamServer(object):
 
     def _check_closed(self):
         if self._closed:
-            raise self.error_class('server is closed')
+            raise self.error_cls('server is closed')
 
     def _bind(self, address):
         raise NotImplementedError

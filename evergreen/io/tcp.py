@@ -17,7 +17,7 @@ TCPError = pyuv.error.TCPError
 
 
 class TCPStream(BaseStream):
-    error_class = TCPError
+    error_cls = TCPError
 
     def __init__(self, handle):
         super(TCPStream, self).__init__()
@@ -99,8 +99,8 @@ class TCPConnection(TCPStream, StreamConnection):
 
 
 class TCPServer(StreamServer):
-    connection_class = TCPConnection
-    error_class = TCPError
+    connection_cls = TCPConnection
+    error_cls = TCPError
 
     def __init__(self):
         super(TCPServer, self).__init__()
@@ -132,7 +132,7 @@ class TCPServer(StreamServer):
             log.debug('accept failed: %d %s', e.args[0], pyuv.errno.strerror(e.args[1]))
             tcp_handle.close()
         else:
-            conn = self.connection_class(tcp_handle)
+            conn = self.connection_cls(tcp_handle)
             conn._set_accepted(self)
             self.handle_connection(conn)
 
