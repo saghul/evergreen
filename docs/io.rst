@@ -33,11 +33,17 @@ in an easy way.
 
     .. py:method:: write(data)
 
-        Write data on the stream
+        Write data on the stream. Return True if data was flushed to the underlying resource
+        and False in case the data was buffered and will be sent later.
+
+    .. py:method:: shutdown
+
+        Close the write side of a stream and flush the pending data.
 
     .. py:method:: close
 
-        Close the stream. All further operations will raise an exception.
+        Close the stream. All further operations will raise an exception. Any buffered data will
+        be lost.
 
     .. py:method:: _set_connected
 
@@ -213,4 +219,18 @@ in an easy way.
 
     Class for representing all TTY related errors.
 
+
+.. py:function:: errno.errorcode
+
+    Mapping between errno codes and their names.
+
+
+.. py:function:: errno.strerror(errorno)
+
+    Returns error string representation.
+
+
+.. py:data:: errno.EXXX
+
+    All error number constants are defined in the errno submodule.
 
