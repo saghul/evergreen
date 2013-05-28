@@ -8,6 +8,7 @@ import weakref
 
 import evergreen
 from evergreen.futures._base import Executor, Future, InfiniteHandler
+from evergreen.log import log
 from evergreen.six.moves import queue
 
 
@@ -89,22 +90,24 @@ class _WorkItem(object):
         self._event.set()
 
 def _worker(executor_reference, work_queue):
-    while True:
-        try:
-            work_item = work_queue.get(block=True, timeout=0.1)
-        except queue.Empty:
-            executor = executor_reference()
-            # Exit if:
-            #   - The interpreter is shutting down OR
-            #   - The executor that owns the worker has been collected OR
-            #   - The executor that owns the worker has been shutdown.
-            if _shutdown or executor is None or executor._shutdown:
-                return
-            del executor
-        else:
-            work_item.run()
-            del work_item
-
+    try:
+        while True:
+            try:
+                work_item = work_queue.get(block=True, timeout=0.1)
+            except queue.Empty:
+                executor = executor_reference()
+                # Exit if:
+                #   - The interpreter is shutting down OR
+                #   - The executor that owns the worker has been collected OR
+                #   - The executor that owns the worker has been shutdown.
+                if _shutdown or executor is None or executor._shutdown:
+                    return
+                del executor
+            else:
+                work_item.run()
+                del work_item
+    except BaseException:
+        log.critical('Exception in worker', exc_info=True)
 
 class ThreadPoolExecutor(Executor):
 

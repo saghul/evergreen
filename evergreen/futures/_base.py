@@ -9,6 +9,7 @@ except ImportError:
 
 from evergreen.event import Event
 from evergreen.locks import Condition, Lock
+from evergreen.log import log
 
 
 FIRST_COMPLETED = 'FIRST_COMPLETED'
@@ -366,7 +367,7 @@ class Future(object):
             try:
                 cb(self)
             except Exception:
-                pass
+                log.exception('exception calling callback for %r', self)
         self._callbacks = []
 
     def set_running_or_notify_cancel(self):
