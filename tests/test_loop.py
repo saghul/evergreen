@@ -4,7 +4,6 @@ from common import dummy, unittest, EvergreenTestCase
 import evergreen
 import signal
 import threading
-import time
 
 from evergreen.six.moves import queue
 
@@ -104,15 +103,24 @@ class LoopTests(EvergreenTestCase):
         self.loop.run()
         self.assertFalse(d.called)
 
+    def test_call_at(self):
+        d = dummy()
+        d.called = False
+        def func():
+            d.called = True
+        self.loop.call_at(self.loop.time()+0.1, func)
+        self.loop.run()
+        self.assertTrue(d.called)
+
     def test_stop(self):
         self.assertRaises(RuntimeError, self.loop.stop)
 
     def test_stop2(self):
         self.loop.call_later(100, lambda: None)
         self.loop.call_later(0.01, self.loop.stop)
-        t0 = time.time()
+        t0 = self.loop.time()
         self.loop.run()
-        t1 = time.time()
+        t1 = self.loop.time()
         self.assertTrue(0 <= t1-t0 < 0.1)
 
     def test_internal_threadpool(self):
@@ -222,6 +230,10 @@ class LoopTests(EvergreenTestCase):
             self.assertRaises(RuntimeError, self.loop.destroy)
         evergreen.spawn(func)
         self.loop.run()
+
+    def test_reuse_handler(self):
+        handler = self.loop.call_later(1, lambda: None)
+        self.assertRaises(AssertionError, self.loop.call_later, 1, handler)
 
 
 if __name__ == '__main__':
