@@ -104,18 +104,6 @@ class LoopTests(EvergreenTestCase):
         self.loop.run()
         self.assertFalse(d.called)
 
-    def test_call_repeatedly(self):
-        d = dummy()
-        d.counter = 0
-        d.handler = None
-        def func():
-            d.counter += 1
-            if d.counter == 3:
-                d.handler.cancel()
-        d.handler = self.loop.call_repeatedly(0.1, func)
-        self.loop.run()
-        self.assertEqual(d.counter, 3)
-
     def test_stop(self):
         self.assertRaises(RuntimeError, self.loop.stop)
 

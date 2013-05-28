@@ -474,3 +474,21 @@ class Executor(object):
         self.shutdown(wait=True)
         return False
 
+
+class InfiniteHandler(object):
+    """Helper class to create a handler that keeps the loop alive until
+    it's cancelled.
+    """
+
+    def __init__(self, loop):
+        self.loop = loop
+        self._cb()
+
+    def _cb(self):
+        self.handler = self.loop.call_later(24*3600, self._cb)
+
+    def cancel(self):
+        if self.handler:
+            self.handler.cancel()
+            self.handler = self.loop = None
+

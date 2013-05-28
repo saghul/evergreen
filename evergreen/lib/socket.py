@@ -133,13 +133,12 @@ class IOHandler(object):
             raise cancel_wait_ex
         self._read_event.clear()
         loop = evergreen.current.loop
-        handler = loop.add_reader(self.fd, self._read_event.set)
+        loop.add_reader(self.fd, self._read_event.set)
         try:
             self._wait(self._read_event, timeout, timeout_exc)
             if self._read_closed:
                 raise cancel_wait_ex
         finally:
-            handler.cancel()
             loop.remove_reader(self.fd)
 
     def wait_write(self, timeout=None, timeout_exc=None):
@@ -147,13 +146,12 @@ class IOHandler(object):
             raise cancel_wait_ex
         self._write_event.clear()
         loop = evergreen.current.loop
-        handler = loop.add_writer(self.fd, self._write_event.set)
+        loop.add_writer(self.fd, self._write_event.set)
         try:
             self._wait(self._write_event, timeout, timeout_exc)
             if self._write_closed:
                 raise cancel_wait_ex
         finally:
-            handler.cancel()
             loop.remove_writer(self.fd)
 
     def close(self, read=True, write=True):

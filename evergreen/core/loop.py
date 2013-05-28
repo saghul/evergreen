@@ -9,6 +9,11 @@ import threading
 import traceback
 
 try:
+    from time import monotonic as _time
+except ImportError:
+    from time import time as _time
+
+try:
     import signal
 except ImportError:
     signal= None
@@ -46,21 +51,17 @@ class Handler(object):
     __slots__ = ('_callback', '_args', '_kwargs', '_cancelled')
 
     def __init__(self, callback, args=(), kwargs={}):
+        assert not isinstance(callback, Handler)
         self._callback = callback
         self._args = args
         self._kwargs = kwargs
         self._cancelled = False
 
-    @property
-    def cancelled(self):
-        return self._cancelled
-
     def cancel(self):
         self._cancelled = True
 
-    def __call__(self):
-        if not self._cancelled:
-            self._callback(*self._args, **self._kwargs)
+    def _run(self):
+        self._callback(*self._args, **self._kwargs)
 
     def __repr__(self):
         res = '{}({}, {}, {})'.format(self.__class__.__name__, self._callback, self._args, self._kwargs)
@@ -167,15 +168,11 @@ class EventLoop(object):
         self._timers.add(timer)
         return handler
 
-    def call_repeatedly(self, interval, callback, *args, **kw):
-        if interval <= 0:
-            raise ValueError('invalid interval specified: {}'.format(interval))
-        timer = pyuv.Timer(self._loop)
-        handler = Timer(callback, args, kw, timer)
-        timer.handler = handler
-        timer.start(self._timer_cb, interval, interval)
-        self._timers.add(timer)
-        return handler
+    def call_at(self, when, callback, *args, **kw):
+        return self.call_later(when-self.time(), callback, *args, **kw)
+
+    def time(self):
+        return _time()
 
     def add_reader(self, fd, callback, *args, **kw):
         handler = Handler(callback, args, kw)
@@ -188,12 +185,9 @@ class EventLoop(object):
             if poll_h.read_handler:
                 raise RuntimeError('another reader is already registered for fd {}'.format(fd))
             poll_h.stop()
-
         poll_h.pevents |= pyuv.UV_READABLE
         poll_h.read_handler = handler
         poll_h.start(poll_h.pevents, self._poll_cb)
-
-        return handler
 
     def remove_reader(self, fd):
         try:
@@ -201,6 +195,7 @@ class EventLoop(object):
         except KeyError:
             return False
         else:
+            handler = poll_h.read_handler
             poll_h.stop()
             poll_h.pevents &= ~pyuv.UV_READABLE
             poll_h.read_handler = None
@@ -209,7 +204,10 @@ class EventLoop(object):
                 del self._fd_map[fd]
             else:
                 poll_h.start(poll_h.pevents, self._poll_cb)
-            return True
+            if handler:
+                handler.cancel()
+                return True
+            return False
 
     def add_writer(self, fd, callback, *args, **kw):
         handler = Handler(callback, args, kw)
@@ -222,12 +220,9 @@ class EventLoop(object):
             if poll_h.write_handler:
                 raise RuntimeError('another writer is already registered for fd {}'.format(fd))
             poll_h.stop()
-
         poll_h.pevents |= pyuv.UV_WRITABLE
         poll_h.write_handler = handler
         poll_h.start(poll_h.pevents, self._poll_cb)
-
-        return handler
 
     def remove_writer(self, fd):
         try:
@@ -235,6 +230,7 @@ class EventLoop(object):
         except KeyError:
             return False
         else:
+            handler = poll_h.write_handler
             poll_h.stop()
             poll_h.pevents &= ~pyuv.UV_WRITABLE
             poll_h.write_handler = None
@@ -243,7 +239,10 @@ class EventLoop(object):
                 del self._fd_map[fd]
             else:
                 poll_h.start(poll_h.pevents, self._poll_cb)
-            return True
+            if handler:
+                handler.cancel()
+                return True
+            return False
 
     def add_signal_handler(self, sig, callback, *args, **kwargs):
         self._validate_signal(sig)
@@ -302,10 +301,9 @@ class EventLoop(object):
             raise RuntimeError('destroy() cannot be called while the loop is running')
 
         if self._destroyed:
-            raise RuntimeError('Event loop already destroyed.')
+            raise RuntimeError('Event loop already destroyed')
 
         loop = getattr(_tls, 'loop', None)
-
         if loop is not self:
             raise RuntimeError('destroy() can only be called from the same thread were the event loop was created')
         del _tls.loop, loop
@@ -379,13 +377,14 @@ class EventLoop(object):
         ntodo = len(self._ready)
         for x in range(ntodo):
             handler = self._ready.popleft()
-            # loop.excepthook takes care of exception handling
-            handler()
+            if not handler._cancelled:
+                # loop.excepthook takes care of exception handling
+                handler._run()
         if not self._ready:
             self._ticker.stop()
 
     def _timer_cb(self, timer):
-        assert not timer.handler.cancelled
+        assert not timer.handler._cancelled
         self._ready.append(timer.handler)
         if not timer.repeat:
             timer.close()
@@ -404,12 +403,12 @@ class EventLoop(object):
             # An error happened, signal both readability and writability and
             # let the error propagate
             if poll_h.read_handler is not None:
-                if poll_h.read_handler.cancelled:
+                if poll_h.read_handler._cancelled:
                     self.remove_reader(fd)
                 else:
                     self._ready.append(poll_h.read_handler)
             if poll_h.write_handler is not None:
-                if poll_h.write_handler.cancelled:
+                if poll_h.write_handler._cancelled:
                     self.remove_writer(fd)
                 else:
                     self._ready.append(poll_h.write_handler)
@@ -420,7 +419,7 @@ class EventLoop(object):
 
         if events & pyuv.UV_READABLE:
             if poll_h.read_handler is not None:
-                if poll_h.read_handler.cancelled:
+                if poll_h.read_handler._cancelled:
                     self.remove_reader(fd)
                     modified = True
                 else:
@@ -429,7 +428,7 @@ class EventLoop(object):
                 poll_h.pevents &= ~pyuv.UV_READABLE
         if events & pyuv.UV_WRITABLE:
             if poll_h.write_handler is not None:
-                if poll_h.write_handler.cancelled:
+                if poll_h.write_handler._cancelled:
                     self.remove_writer(fd)
                     modified = True
                 else:

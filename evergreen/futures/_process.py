@@ -49,7 +49,7 @@ import threading
 import weakref
 
 import evergreen
-from evergreen.futures._base import Executor, Future
+from evergreen.futures._base import Executor, Future, InfiniteHandler
 from evergreen.six.moves import queue
 
 
@@ -106,7 +106,7 @@ class _WorkItem(object):
         self.kwargs = kwargs
         self.loop = evergreen.current.loop
         # Keep the loop alive while this work item is queued
-        self.handler = self.loop.call_repeatedly(24*3600, lambda: None)
+        self.handler = InfiniteHandler(self.loop)
         self._event = threading.Event()
         self._cancelled = False
 
