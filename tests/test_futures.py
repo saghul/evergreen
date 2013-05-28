@@ -159,6 +159,12 @@ class FuturesTests(EvergreenTestCase):
         evergreen.spawn(waiter)
         self.loop.run()
 
+    def test_reuse(self):
+        f = futures.Future()
+        f.set_result(42)
+        self.assertEqual(f.get(), 42)
+        self.assertRaises(RuntimeError, f.get)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
