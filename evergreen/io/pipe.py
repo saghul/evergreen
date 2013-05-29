@@ -6,6 +6,7 @@ import pyuv
 
 import evergreen
 from evergreen.futures import Future
+from evergreen.io import errno
 from evergreen.io.stream import BaseStream, StreamConnection, StreamServer
 from evergreen.log import log
 
@@ -53,7 +54,7 @@ class PipeClient(BasePipeStream):
         connect_result = Future()
         def cb(handle, error):
             if error is not None:
-                connect_result.set_exception(PipeError(error, pyuv.errno.strerror(error)))
+                connect_result.set_exception(PipeError(error, errno.strerror(error)))
             else:
                 connect_result.set_result(None)
 
@@ -98,13 +99,13 @@ class PipeServer(StreamServer):
 
     def __listen_cb(self, handle, error):
         if error is not None:
-            log.debug('listen failed: %d %s', error, pyuv.errno.strerror(error))
+            log.debug('listen failed: %d %s', error, errno.strerror(error))
             return
         pipe_handle = pyuv.Pipe(self._handle.loop)
         try:
             self._handle.accept(pipe_handle)
         except PipeError as e:
-            log.debug('accept failed: %d %s', e.args[0], pyuv.errno.strerror(e.args[1]))
+            log.debug('accept failed: %d %s', e.args[0], e.args[1])
             pipe_handle.close()
         else:
             conn = self.connection_cls(pipe_handle)

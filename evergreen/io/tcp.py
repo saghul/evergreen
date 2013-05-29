@@ -6,6 +6,7 @@ import pyuv
 
 import evergreen
 from evergreen.futures import Future
+from evergreen.io import errno
 from evergreen.io.stream import BaseStream, StreamConnection, StreamServer
 from evergreen.lib import socket
 from evergreen.log import log
@@ -54,7 +55,7 @@ class TCPClient(TCPStream):
 
         def cb(handle, error):
             if error is not None:
-                handle.connect_result.set_exception(TCPError(error, pyuv.errno.strerror(error)))
+                handle.connect_result.set_exception(TCPError(error, errno.strerror(error)))
             else:
                 handle.connect_result.set_result(None)
 
@@ -123,13 +124,13 @@ class TCPServer(StreamServer):
 
     def __listen_cb(self, handle, error):
         if error is not None:
-            log.debug('listen failed: %d %s', error, pyuv.errno.strerror(error))
+            log.debug('listen failed: %d %s', error, errno.strerror(error))
             return
         tcp_handle = pyuv.TCP(self._handle.loop)
         try:
             self._handle.accept(tcp_handle)
         except TCPError as e:
-            log.debug('accept failed: %d %s', e.args[0], pyuv.errno.strerror(e.args[1]))
+            log.debug('accept failed: %d %s', e.args[0], e.args[1])
             tcp_handle.close()
         else:
             conn = self.connection_cls(tcp_handle)
