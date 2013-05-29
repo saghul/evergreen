@@ -5,7 +5,7 @@ import re
 import sys
 
 import evergreen
-from evergreen.io import tcp, pipe
+from evergreen.io import tcp, pipe, udp
 from evergreen.io.util import StringBuffer
 
 
@@ -159,6 +159,30 @@ class IOTests(EvergreenTestCase):
             self.assertRaises(pipe.PipeError, client.read_until, b'\n')
             self.server.close()
         evergreen.spawn(self._start_pipe_echo_server)
+        evergreen.spawn(connect)
+        self.loop.run()
+
+    def _start_udp_echo_server(self):
+        self.server = udp.UDPEndpoint()
+        self.server.bind(TEST_SERVER)
+        try:
+            while True:
+                data, addr = self.server.receive()
+                self.server.send(data, addr)
+        except udp.UDPError:
+            pass
+
+    def test_udp_ping_pong(self):
+        def connect():
+            client = udp.UDPEndpoint()
+            client.send(b'PING', TEST_SERVER)
+            data, addr = client.receive()
+            self.assertEqual(addr[1], TEST_SERVER[1])
+            self.assertEqual(data, b'PING')
+            client.close()
+            self.assertRaises(udp.UDPError, client.receive)
+            self.server.close()
+        evergreen.spawn(self._start_udp_echo_server)
         evergreen.spawn(connect)
         self.loop.run()
 
