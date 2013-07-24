@@ -8,7 +8,7 @@ import time
 class MyTask(evergreen.Task):
     called = False
 
-    def run_(self):
+    def run(self):
         self.called = True
 
 

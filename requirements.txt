@@ -1,3 +1,3 @@
-greenlet>=0.4.0
+fibers>=0.1.0
 pyuv>=0.10.4
 

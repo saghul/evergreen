@@ -5,10 +5,12 @@
 import evergreen
 
 from evergreen import six
-from evergreen.core.tasklets import tasklet, get_current, TaskletExit
 from evergreen.event import Event
 
-__all__ = ['Task', 'TaskExit', 'spawn', 'sleep', 'task']
+from fibers import Fiber
+
+
+__all__ = ['Task', 'TaskExit', 'get_current', 'spawn', 'sleep', 'task']
 
 
 def sleep(seconds=0):
@@ -19,8 +21,8 @@ def sleep(seconds=0):
     are desired.
     """
     loop = evergreen.current.loop
-    current = get_current()
-    assert loop.tasklet is not current
+    current = Fiber.current()
+    assert loop.fiber is not current
     timer = loop.call_later(seconds, current.switch)
     try:
         loop.switch()
@@ -50,10 +52,14 @@ def task(func):
     return task_wrapper
 
 
-TaskExit = TaskletExit
+get_current = Fiber.current
 
 
-# Helper to generate new thread names
+class TaskExit(BaseException):
+    pass
+
+
+# Helper to generate new task names
 _counter = 0
 def _newname(template="Task-%d"):
     global _counter
@@ -61,15 +67,16 @@ def _newname(template="Task-%d"):
     return template % _counter
 
 
-class Task(tasklet):
+class Task(Fiber):
 
     def __init__(self, target=None, name=None, args=(), kwargs={}):
-        super(Task, self).__init__(parent=evergreen.current.loop.tasklet)
+        super(Task, self).__init__(target=self.__run, parent=evergreen.current.loop.fiber)
         self._name = str(name or _newname())
         self._target = target
         self._args = args
         self._kwargs = kwargs
         self._started = False
+        self._running = False
         self._exit_event = Event()
 
     def start(self):
@@ -78,7 +85,7 @@ class Task(tasklet):
         self._started = True
         evergreen.current.loop.call_soon(self.switch)
 
-    def run_(self):
+    def run(self):
         if self._target:
             self._target(*self._args, **self._kwargs)
 
@@ -89,38 +96,30 @@ class Task(tasklet):
             raise RuntimeError('cannot join task before it is started')
         return self._exit_event.wait(timeout)
 
-    def kill(self, *throw_args):
+    def kill(self, typ=TaskExit, value=None, tb=None):
         """Terminates the current task by raising an exception into it.
         Whatever that task might be doing; be it waiting for I/O or another
         primitive, it sees an exception as soon as it yields control.
 
         By default, this exception is TaskExit, but a specific exception
-        may be specified.  *throw_args* should be the same as the arguments to
-        raise; either an exception instance or an exc_info tuple.
-
+        may be specified.
         """
-        if self.dead:
+        if not self.is_alive():
             return
-        if not self:
+        if not self._running:
             # task hasn't started yet and therefore throw won't work
-            def just_raise(*a, **kw):
-                try:
-                    if throw_args:
-                        six.reraise(throw_args[0], throw_args[1], throw_args[2])
-                    else:
-                        raise TaskExit()
-                finally:
-                    self._exit_event.set()
-            self.run_ = just_raise
+            def just_raise():
+                six.reraise(typ, value, tb)
+            self.run = just_raise
             return
-        evergreen.current.loop.call_soon(self.throw, *throw_args)
+        evergreen.current.loop.call_soon(self.throw, typ, value, tb)
 
     def __repr__(self):
         status = "initial"
         if self._started:
             status = "started"
-        if self.dead:
-            status = "dead"
+        if self._running:
+            status = "running"
         if self._exit_event.is_set():
             status = "ended"
         return "<%s(%s, %s)>" % (self.__class__.__name__, self._name, status)
@@ -131,22 +130,14 @@ class Task(tasklet):
 
     # internal
 
-    def switch(self, *args, **kwargs):
-        current = evergreen.current.task
-        if current is not evergreen.current.loop.tasklet:
-            raise RuntimeError('only the loop tasklet can switch to a Task')
-        return super(Task, self).switch(*args, **kwargs)
-
-    def throw(self, *args):
-        current = evergreen.current.task
-        if current is not evergreen.current.loop.tasklet:
-            raise RuntimeError('only the loop tasklet can throw to a Task')
-        return super(Task, self).throw(*args)
-
-    def run(self):
+    def __run(self):
         try:
-            self.run_()
+            self._running = True
+            self.run()
+        except TaskExit:
+            pass
         finally:
+            self._running = False
             del self._target, self._args, self._kwargs
             self._exit_event.set()
 

@@ -2,9 +2,7 @@
 # This file is part of Evergreen. See the NOTICE for more information.
 #
 
-from evergreen.core.loop import *
-from evergreen.core.tasklets import *
+from evergreen.core.loop import EventLoop
 
-__all__ = [loop.__all__ +
-           tasklets.__all__]
+__all__ = ['EventLoop']
 

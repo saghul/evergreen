@@ -2,13 +2,13 @@
 # This file is part of Evergreen. See the NOTICE for more information.
 #
 
-from evergreen.core.tasklets import get_current
+import fibers
 
 __all__ = ['local']
 
 
 def _get_local_dict():
-    current = get_current()
+    current = fibers.current()
     s = '_%s__local_dict__' % current.__class__.__name__
     if not hasattr(current, s):
         setattr(current, s, {})

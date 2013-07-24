@@ -19,9 +19,9 @@ except ImportError:
     signal= None
 
 from collections import deque
+from fibers import Fiber
 
 from evergreen.core.socketpair import SocketPair
-from evergreen.core.tasklets import tasklet, get_current, TaskletExit
 from evergreen.core.threadpool import ThreadPool
 
 __all__ = ['EventLoop']
@@ -110,6 +110,9 @@ class Ticker(pyuv.Idle):
             self.start(_noop)
 
 
+RUN_DEFAULT = 1
+RUN_FOREVER = 2
+
 class EventLoop(object):
 
     def __init__(self):
@@ -120,7 +123,7 @@ class EventLoop(object):
         self._loop.excepthook = self._handle_error
         self._loop.event_loop = self
         self._threadpool = ThreadPool(self)
-        self.tasklet = tasklet(self._run_loop)
+        self.fiber = Fiber(self._run_loop)
 
         self._destroyed = False
         self._started = False
@@ -275,20 +278,32 @@ class EventLoop(object):
         if not self._started:
             self._run(forever=False)
             return
-        current = get_current()
-        assert current is not self.tasklet, 'Cannot switch to MAIN from MAIN'
+        current = Fiber.current()
+        assert current is not self.fiber, 'Cannot switch to MAIN from MAIN'
         try:
-            if self.tasklet.parent is not current:
-                current.parent = self.tasklet
+            if self.fiber.parent is not current:
+                current.parent = self.fiber
         except ValueError:
-            pass  # gets raised if there is a tasklet parent cycle
-        return self.tasklet.switch()
+            pass  # gets raised if there is a Fiber parent cycle
+        return self.fiber.switch()
 
-    def run(self):
-        self._run(forever=False)
+    def run(self, mode=RUN_DEFAULT):
+        if Fiber.current() is not self.fiber.parent:
+            raise RuntimeError('run() can only be called from MAIN fiber')
+        if not self.fiber.is_alive():
+            raise RuntimeError('event loop has already ended')
+        if self._started:
+            raise RuntimeError('event loop was already started')
+        self._started = True
+        self._running = True
+        self._run_mode = mode
+        try:
+            self.fiber.switch()
+        finally:
+            self._running = False
 
     def run_forever(self):
-        self._run(forever=True)
+        self.run(mode=RUN_FOREVER)
 
     def stop(self):
         if not self._started:
@@ -329,30 +344,14 @@ class EventLoop(object):
     # internal
 
     def _handle_error(self, typ, value, tb):
-        if not issubclass(typ, (TaskletExit, SystemExit)):
+        if not issubclass(typ, SystemExit):
             traceback.print_exception(typ, value, tb)
         if issubclass(typ, (KeyboardInterrupt, SystemExit, SystemError)):
-            current = get_current()
-            assert current is self.tasklet
-            self.tasklet.parent.throw(typ, value)
+            assert Fiber.current() is self.fiber
+            self.fiber.parent.throw(typ, value)
 
-    def _run(self, forever):
-        current = get_current()
-        if current is not self.tasklet.parent:
-            raise RuntimeError('run() can only be called from MAIN tasklet')
-        if self.tasklet.dead:
-            raise RuntimeError('event loop has already ended')
-        if self._started:
-            raise RuntimeError('event loop was already started')
-        self._started = True
-        self._running = True
-        try:
-            self.tasklet.switch(forever=forever)
-        finally:
-            self._running = False
-
-    def _run_loop(self, forever=False):
-        if forever:
+    def _run_loop(self):
+        if self._run_mode == RUN_FOREVER:
             self._ready_processor.ref()
             self._waker.ref()
         self._loop.run(pyuv.UV_RUN_DEFAULT)
