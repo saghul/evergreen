@@ -323,11 +323,6 @@ class Future(object):
             return self._state in (CANCELLED, CANCELLED_AND_NOTIFIED)
 
     @property
-    def running(self):
-        with self._condition:
-            return self._state == RUNNING
-
-    @property
     def done(self):
         with self._condition:
             return self._state in (CANCELLED, CANCELLED_AND_NOTIFIED, FINISHED)
