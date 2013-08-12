@@ -220,6 +220,38 @@ in an easy way.
     Class for representing all TTY related errors.
 
 
+.. py:class:: UDPEndpoint
+
+    Class representing a UDP endpoint. UDP endpoints can be both servers
+    and clients.
+
+
+.. py:exception:: UDPError
+
+    Class for representing all UDP related errors.
+
+    .. py:attribute:: sockname
+
+        Returns the local address.
+
+    .. py:method:: bind(address)
+
+        Bind the endpoint to the specified IPv4 or IPv6 address.
+
+    .. py:method:: send(data, address)
+
+        Write data to the specified address.
+
+    .. py:method:: receive
+
+        Wait for incoming data. The return value is a tuple consisting of the received
+        data and the source IP address where it was received from.
+
+    .. py:method:: close
+
+        Close the stream. All further operations will raise an exception.
+
+
 .. py:function:: errno.errorcode
 
     Mapping between errno codes and their names.

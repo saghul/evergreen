@@ -31,30 +31,30 @@ in the standard library.
     Runs the given target function with the specified arguments as a cooperative
     task.
 
+    .. py:classmethod:: current
+
+        Returns the current running task instance.
+
     .. py:method:: start
 
         Schedules the task to be run.
 
-    .. py:method:: run\_
+    .. py:method:: run
 
         Main method the task will execute. Subclasses may want to override this method
         instead of passing arguments to __init__.
-
-        .. note::
-            The method is "run\_" not "run" due to how the underlying tasklet implmentation
-            works right now, be careful.
 
     .. py:method:: join(timeout=None)
 
         Wait until the task finishes for the given amount of time. Returns a boolean flag
         indicating if the task finished the work or not.
 
-    .. py:method:: kill(\*args)
+    .. py:method:: kill(typ=TaskExit, [value, [tb]])
 
-        Raises the given exception (or `TaskExit` otherwise) in the task. If the task wasn't
+        Raises the given exception (`TaskExit` by default) in the task. If the task wasn't
         run yet it will be raised the moment it runs. If the task was already running, it will
         be raised when it yields control.
-        
+
         Calling this function doesn't unschedule the current task.
 
 .. py:exception:: TaskExit

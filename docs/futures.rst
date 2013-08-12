@@ -27,10 +27,6 @@ which is cooperative.
 
         Return True if the call was successfully cancelled or finished running.
 
-    .. py:attribute:: running
-
-        Return True if the call is currently being executed and cannot be cancelled.
-
     .. py:method:: get(timeout=None)
 
         Return the value returned by the call. If the call hasn’t yet completed then
@@ -184,7 +180,11 @@ The future class in this module doesn't conform 100% to the API exposed
 by the equivalent class in the `concurrent.futures` module from the
 standard library, though they are pretty minor. Here is the list of changes:
 
-- `cancelled`, `done` and `running` are properties, not functions
+- `cancelled` and `done` are properties, not functions
 - `result` function is called `get`
 - there is no `exception` function
+- there is no `running` function
+- futures can only be used once, after the result (or exception) is fetched
+  from a future, it will raise ``RuntimeError`` if ``get()`` is called
+  again on it
 

@@ -16,6 +16,10 @@ based callback scheduling.
     explicitly created for threads other than the main thread.
     The current loop can be accessed with `evergreen.current.loop`.
 
+    .. py:classmethod:: current
+
+        Returns the event loop instance running in the current thread.
+
     .. py:method:: call_soon(callback, \*args, \*\*kw)
 
         Schedule the given callback to be called as soon as possible. Returns a `Handler`
@@ -32,17 +36,19 @@ based callback scheduling.
         Schedule the given callback to be called after the given amount
         of time. Returns a `Handler` object which can be used to cancel the callback.
 
-    .. py:method:: call_repeatedly(interval, callback, \*args, \*\*kw)
+    .. py:method:: call_at(when, callback, \*args, \*\*kw)
 
-        Schedule the given callback to be called at the given time
-        intervals. Returns a `Handler` object which can be used to cancel the
-        callback.
+        Schedule the given callback to be called at the given time. Returns a `Handler` object
+        which can be used to cancel the callback.
+
+    .. py:method:: time()
+
+        Returns the current time.
 
     .. py:method:: add_reader(fd, callback, \*args, \*\*kw)
 
         Create a handler which will call the given callback when the given
-        file descriptor is ready for reading. Returns a `Handler` instance which
-        can be used to cancel the operation.
+        file descriptor is ready for reading.
 
     .. py:method:: remove_reader(fd)
 
@@ -55,8 +61,7 @@ based callback scheduling.
 
     .. py:method:: remove_writer(fd)
 
-        Remove the write handler for the given file descriptor. Returns a `Handler`
-        instance which can be used to cancel the operation.
+        Remove the write handler for the given file descriptor.
 
     .. py:method:: add_signal_handler(signum, callback, \*args, \*\*kw)
 
