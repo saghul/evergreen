@@ -106,6 +106,8 @@ class Task(Fiber):
         """
         if not self.is_alive():
             return
+        if not value:
+            value = typ()
         if not self._running:
             # task hasn't started yet and therefore throw won't work
             def just_raise():
