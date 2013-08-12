@@ -1,3 +1,14 @@
+Version 0.1.0
+==============
+ - Added initial UDP support
+ - Use fibers instead of greenlet
+ - Make event loop API a bit more tulip-ish
+ - Added logging for certain exceptions in futures
+ - Don't allow futures to be used more than once
+ - Removed Future.running
+ - Removed empty TODO file
+ - Updated documentation
+
 Version 0.0.4
 ==============
  - Added return value to Stream.write
