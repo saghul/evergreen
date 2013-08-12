@@ -34,19 +34,6 @@ def _noop(*args, **kwargs):
     pass
 
 
-def get_loop():
-    """Get the current event loop singleton object.
-    """
-    try:
-        return _tls.loop
-    except AttributeError:
-        # create loop only for main thread
-        if threading.current_thread().name == 'MainThread':
-            _tls.loop = EventLoop()
-            return _tls.loop
-        raise RuntimeError('there is no event loop created in the current thread')
-
-
 class Handler(object):
     __slots__ = ('_callback', '_args', '_kwargs', '_cancelled')
 
@@ -144,6 +131,19 @@ class EventLoop(object):
         self._waker.unref()
 
         self._install_signal_checker()
+
+    @classmethod
+    def current(cls):
+        """Get the current event loop singleton object.
+        """
+        try:
+            return _tls.loop
+        except AttributeError:
+            # create loop only for main thread
+            if threading.current_thread().name == 'MainThread':
+                _tls.loop = cls()
+                return _tls.loop
+            raise RuntimeError('there is no event loop created in the current thread')
 
     @property
     def running(self):

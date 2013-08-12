@@ -30,7 +30,7 @@ class TLSTest(unittest.TestCase):
         loop2.destroy()
 
     def _start_loop(self, q):
-        l = evergreen.loop.EventLoop()
+        l = evergreen.EventLoop()
         q.put(l)
         l.run_forever()
         l.destroy()

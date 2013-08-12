@@ -6,22 +6,23 @@ __version__ = '0.0.4'
 
 from evergreen.channel import *
 from evergreen.tasks import *
-from evergreen.core import loop, EventLoop
+from evergreen.core import *
 
 __all__ = [channel.__all__ +
            tasks.__all__ +
-           ['EventLoop', 'current', '__version__']]
+           core.__all__ +
+           ['current', '__version__']]
 
 
 class _CurrentContext(object):
 
     @property
     def loop(self):
-        return loop.get_loop()
+        return EventLoop.current()
 
     @property
     def task(self):
-        return tasks.get_current()
+        return Task.current()
 
 current = _CurrentContext()
 

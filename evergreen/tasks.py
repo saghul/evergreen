@@ -10,7 +10,7 @@ from evergreen.event import Event
 from fibers import Fiber
 
 
-__all__ = ['Task', 'TaskExit', 'get_current', 'spawn', 'sleep', 'task']
+__all__ = ['Task', 'TaskExit', 'spawn', 'sleep', 'task']
 
 
 def sleep(seconds=0):
