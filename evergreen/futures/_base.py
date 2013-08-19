@@ -283,7 +283,6 @@ class Future(object):
     def __init__(self):
         self._condition = Condition()
         self._state = PENDING
-        self._used = False
         self._result = None
         self._exception = None
         self._callbacks = []
@@ -353,16 +352,10 @@ class Future(object):
     # Internal
 
     def _get_result(self):
-        if self._used:
-            raise RuntimeError('the result of a futue can only be fetched once')
-        try:
-            if self._exception:
-                raise self._exception
-            else:
-                return self._result
-        finally:
-            self._used = True
-            self._exception = self._result = None
+        if self._exception:
+            raise self._exception
+        else:
+            return self._result
 
     def _run_callbacks(self):
         for cb in self._callbacks:
