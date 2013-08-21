@@ -30,6 +30,7 @@ class _Work(object):
             self.result = self.func(*self.args, **self.kwargs)
         except BaseException:
             self.exc = sys.exc_info()
+        self = None
 
 
 class ThreadPool(object):
