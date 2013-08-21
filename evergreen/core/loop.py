@@ -30,10 +30,6 @@ __all__ = ['EventLoop']
 _tls = threading.local()
 
 
-def _noop(*args, **kwargs):
-    pass
-
-
 class Handler(object):
     __slots__ = ('_callback', '_args', '_kwargs', '_cancelled')
 
@@ -91,12 +87,6 @@ class SignalHandler(Handler):
         self._signal_h = None
 
 
-class Ticker(pyuv.Idle):
-    def tick(self, *args, **kwargs):
-        if not self.active:
-            self.start(_noop)
-
-
 RUN_DEFAULT = 1
 RUN_FOREVER = 2
 
@@ -121,13 +111,8 @@ class EventLoop(object):
         self._timers = set()
         self._ready = deque()
 
-        self._ready_processor = pyuv.Check(self._loop)
-        self._ready_processor.start(self._process_ready)
-        self._ready_processor.unref()
-
-        self._ticker = Ticker(self._loop)
-
-        self._waker = pyuv.Async(self._loop, self._ticker.tick)
+        self._ready_processor = pyuv.Idle(self._loop)
+        self._waker = pyuv.Async(self._loop, self._async_cb)
         self._waker.unref()
 
         self._install_signal_checker()
@@ -151,12 +136,15 @@ class EventLoop(object):
 
     def call_soon(self, callback, *args, **kw):
         handler = Handler(callback, args, kw)
-        self._ready.append(handler)
-        self._ticker.tick()
+        self._add_callback(handler)
         return handler
 
     def call_from_thread(self, callback, *args, **kw):
         handler = Handler(callback, args, kw)
+        # Here we don't call self._add_callback on purpose, because it's not thread
+        # safe to start pyuv handles. We just append the callback to the queue and
+        # wakeup the loop. This is thread safe because the queue is only processed
+        # in a single place and in a thread safe manner.
         self._ready.append(handler)
         self._waker.send()
         return handler
@@ -333,7 +321,6 @@ class EventLoop(object):
         self._threadpool = None
 
         self._ready_processor = None
-        self._ticker = None
         self._waker = None
 
         self._fd_map.clear()
@@ -342,6 +329,11 @@ class EventLoop(object):
         self._ready.clear()
 
     # internal
+
+    def _add_callback(self, cb):
+        self._ready.append(cb)
+        if not self._ready_processor.active:
+            self._ready_processor.start(self._process_ready)
 
     def _handle_error(self, typ, value, tb):
         if not issubclass(typ, SystemExit):
@@ -352,7 +344,6 @@ class EventLoop(object):
 
     def _run_loop(self):
         if self._run_mode == RUN_FOREVER:
-            self._ready_processor.ref()
             self._waker.ref()
         self._loop.run(pyuv.UV_RUN_DEFAULT)
 
@@ -380,21 +371,22 @@ class EventLoop(object):
                 # loop.excepthook takes care of exception handling
                 handler._run()
         if not self._ready:
-            self._ticker.stop()
+            self._ready_processor.stop()
+
+    def _async_cb(self, handle):
+        if not self._ready_processor.active:
+            self._ready_processor.start(self._process_ready)
 
     def _timer_cb(self, timer):
         assert not timer.handler._cancelled
-        self._ready.append(timer.handler)
+        self._add_callback(timer.handler)
         if not timer.repeat:
             timer.close()
             self._timers.remove(timer)
             del timer.handler
-            # Workaround for https://github.com/joyent/libuv/issues/796
-            if sys.platform == 'win32':
-                self._ticker.tick()
 
     def _signal_cb(self, signal_h, signum):
-        self._ready.append(signal_h.handler)
+        self._add_callback(signal_h.handler)
 
     def _poll_cb(self, poll_h, events, error):
         fd = poll_h.fileno()
@@ -405,12 +397,12 @@ class EventLoop(object):
                 if poll_h.read_handler._cancelled:
                     self.remove_reader(fd)
                 else:
-                    self._ready.append(poll_h.read_handler)
+                    self._add_callback(poll_h.read_handler)
             if poll_h.write_handler is not None:
                 if poll_h.write_handler._cancelled:
                     self.remove_writer(fd)
                 else:
-                    self._ready.append(poll_h.write_handler)
+                    self._add_callback(poll_h.write_handler)
             return
 
         old_events = poll_h.pevents
@@ -422,7 +414,7 @@ class EventLoop(object):
                     self.remove_reader(fd)
                     modified = True
                 else:
-                    self._ready.append(poll_h.read_handler)
+                    self._add_callback(poll_h.read_handler)
             else:
                 poll_h.pevents &= ~pyuv.UV_READABLE
         if events & pyuv.UV_WRITABLE:
@@ -431,7 +423,7 @@ class EventLoop(object):
                     self.remove_writer(fd)
                     modified = True
                 else:
-                    self._ready.append(poll_h.write_handler)
+                    self._add_callback(poll_h.write_handler)
             else:
                 poll_h.pevents &= ~pyuv.UV_WRITABLE
 
