@@ -22,7 +22,7 @@ def sleep(seconds=0):
     """
     loop = evergreen.current.loop
     current = Fiber.current()
-    assert loop.fiber is not current
+    assert loop.task is not current
     timer = loop.call_later(seconds, current.switch)
     try:
         loop.switch()
@@ -70,7 +70,7 @@ def _newname(template="Task-%d"):
 class Task(Fiber):
 
     def __init__(self, target=None, name=None, args=(), kwargs={}):
-        super(Task, self).__init__(target=self.__run, parent=evergreen.current.loop.fiber)
+        super(Task, self).__init__(target=self.__run, parent=evergreen.current.loop.task)
         self._name = str(name or _newname())
         self._target = target
         self._args = args

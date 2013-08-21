@@ -110,7 +110,7 @@ class EventLoop(object):
         self._loop.excepthook = self._handle_error
         self._loop.event_loop = self
         self._threadpool = ThreadPool(self)
-        self.fiber = Fiber(self._run_loop)
+        self.task = Fiber(self._run_loop)
 
         self._destroyed = False
         self._started = False
@@ -279,18 +279,18 @@ class EventLoop(object):
             self._run(forever=False)
             return
         current = Fiber.current()
-        assert current is not self.fiber, 'Cannot switch to MAIN from MAIN'
+        assert current is not self.task, 'Cannot switch to MAIN from MAIN'
         try:
-            if self.fiber.parent is not current:
-                current.parent = self.fiber
+            if self.task.parent is not current:
+                current.parent = self.task
         except ValueError:
             pass  # gets raised if there is a Fiber parent cycle
-        return self.fiber.switch()
+        return self.task.switch()
 
     def run(self, mode=RUN_DEFAULT):
-        if Fiber.current() is not self.fiber.parent:
+        if Fiber.current() is not self.task.parent:
             raise RuntimeError('run() can only be called from MAIN fiber')
-        if not self.fiber.is_alive():
+        if not self.task.is_alive():
             raise RuntimeError('event loop has already ended')
         if self._started:
             raise RuntimeError('event loop was already started')
@@ -298,7 +298,7 @@ class EventLoop(object):
         self._running = True
         self._run_mode = mode
         try:
-            self.fiber.switch()
+            self.task.switch()
         finally:
             self._running = False
 
@@ -347,8 +347,8 @@ class EventLoop(object):
         if not issubclass(typ, SystemExit):
             traceback.print_exception(typ, value, tb)
         if issubclass(typ, (KeyboardInterrupt, SystemExit, SystemError)):
-            assert Fiber.current() is self.fiber
-            self.fiber.parent.throw(typ, value)
+            assert Fiber.current() is self.task
+            self.task.parent.throw(typ, value)
 
     def _run_loop(self):
         if self._run_mode == RUN_FOREVER:

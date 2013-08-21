@@ -51,7 +51,7 @@ class LoopTests(EvergreenTestCase):
 
     def test_run(self):
         self.loop.run()
-        self.assertFalse(self.loop.fiber.is_alive())
+        self.assertFalse(self.loop.task.is_alive())
 
     def test_call_soon(self):
         d = dummy()
