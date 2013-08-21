@@ -52,9 +52,6 @@ def task(func):
     return task_wrapper
 
 
-get_current = Fiber.current
-
-
 class TaskExit(BaseException):
     pass
 
