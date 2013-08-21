@@ -348,7 +348,7 @@ class EventLoop(object):
             traceback.print_exception(typ, value, tb)
         if issubclass(typ, (KeyboardInterrupt, SystemExit, SystemError)):
             assert Fiber.current() is self.task
-            self.task.parent.throw(typ, value)
+            self.task.parent.throw(typ, value, tb)
 
     def _run_loop(self):
         if self._run_mode == RUN_FOREVER:
