@@ -2,9 +2,9 @@
 # This file is part of Evergreen. See the NOTICE for more information.
 #
 
-__all__ = ['Event']
-
 from evergreen.locks import Condition, Lock
+
+__all__ = ['Event']
 
 
 class Event(object):
