@@ -5,7 +5,7 @@
 import pyuv
 
 import evergreen
-from evergreen.futures import Future
+from evergreen.core.utils import Result
 from evergreen.io import errno
 from evergreen.io.stream import BaseStream, StreamConnection, StreamServer
 from evergreen.lib import socket
@@ -41,6 +41,7 @@ class TCPClient(TCPStream):
         loop = evergreen.current.loop
         handle = pyuv.TCP(loop._loop)
         super(TCPClient, self).__init__(handle)
+        self._connect_result = Result()
 
     def connect(self, target, source_address=None):
         if self._connected:
@@ -53,46 +54,43 @@ class TCPClient(TCPStream):
         if not r:
             raise TCPError('getaddrinfo returned no result')
 
-        def cb(handle, error):
-            if error is not None:
-                handle.connect_result.set_exception(TCPError(error, errno.strerror(error)))
-            else:
-                handle.connect_result.set_result(None)
-
         err = None
         loop = self._handle.loop
         for item in r:
-            connect_result = Future()
-            addr = item[-1]
-            idx = addr[0].find('%')
-            if idx != -1:
-                host, rest = addr[0], addr[1:]
-                addr = (host[:idx],) + rest
-            handle = pyuv.TCP(loop)
-            handle.connect_result = connect_result
-            try:
-                if source_address:
-                    handle.bind(source_address)
-                handle.connect(addr, cb)
-            except TCPError as e:
-                err = e
-                handle.close()
-                continue
-            try:
-                connect_result.get()
-            except TCPError as e:
-                err = e
-                handle.close()
-                del handle.connect_result
-                continue
-            else:
-                del handle.connect_result
-                self._handle.close()
-                self._handle = handle
-                break
+            with self._connect_result:
+                addr = item[-1]
+                idx = addr[0].find('%')
+                if idx != -1:
+                    host, rest = addr[0], addr[1:]
+                    addr = (host[:idx],) + rest
+                handle = pyuv.TCP(loop)
+                try:
+                    if source_address:
+                        handle.bind(source_address)
+                    handle.connect(addr, self.__connect_cb)
+                except TCPError as e:
+                    err = e
+                    handle.close()
+                    continue
+                try:
+                    self._connect_result.get()
+                except TCPError as e:
+                    err = e
+                    handle.close()
+                    continue
+                else:
+                    self._handle.close()
+                    self._handle = handle
+                    break
         if err is not None:
             raise err
         self._set_connected()
+
+    def __connect_cb(self, handle, error):
+        if error is not None:
+            self._connect_result.set_exception(TCPError(error, errno.strerror(error)))
+        else:
+            self._connect_result.set_value(None)
 
 
 class TCPConnection(TCPStream, StreamConnection):

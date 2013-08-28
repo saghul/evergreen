@@ -5,7 +5,7 @@
 import pyuv
 
 import evergreen
-from evergreen.futures import Future
+from evergreen.core.utils import Result
 from evergreen.io import errno
 from evergreen.io.stream import BaseStream, StreamConnection, StreamServer
 from evergreen.log import log
@@ -46,30 +46,29 @@ class PipeClient(BasePipeStream):
         loop = evergreen.current.loop
         handle = pyuv.Pipe(loop._loop)
         super(PipeClient, self).__init__(handle)
+        self._connect_result = Result()
 
     def connect(self, target):
         if self._connected:
             raise PipeError('already connected')
+        with self._connect_result:
+            try:
+                self._handle.connect(target, self.__connect_cb)
+            except PipeError:
+                self.close()
+                raise
+            try:
+                self._connect_result.get()
+            except PipeError:
+                self.close()
+                raise
+        self._set_connected()
 
-        connect_result = Future()
-        def cb(handle, error):
-            if error is not None:
-                connect_result.set_exception(PipeError(error, errno.strerror(error)))
-            else:
-                connect_result.set_result(None)
-
-        try:
-            self._handle.connect(target, cb)
-        except PipeError:
-            self.close()
-            raise
-        try:
-            connect_result.get()
-        except PipeError:
-            self.close()
-            raise
+    def __connect_cb(self, handle, error):
+        if error is not None:
+            self._connect_result.set_exception(PipeError(error, errno.strerror(error)))
         else:
-            self._set_connected()
+            self._connect_result.set_value(None)
 
 
 class PipeServer(StreamServer):
