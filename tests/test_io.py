@@ -16,6 +16,7 @@ else:
 TEST_PORT = 1234
 TEST_SERVER = ('0.0.0.0', TEST_PORT)
 TEST_CLIENT = ('127.0.0.1', TEST_PORT)
+TEST_UDP_ENDPOINT = TEST_CLIENT
 
 
 class EchoMixin(object):
@@ -164,7 +165,7 @@ class IOTests(EvergreenTestCase):
 
     def _start_udp_echo_server(self):
         self.server = udp.UDPEndpoint()
-        self.server.bind(TEST_SERVER)
+        self.server.bind(TEST_UDP_ENDPOINT)
         try:
             while True:
                 data, addr = self.server.receive()
@@ -175,9 +176,8 @@ class IOTests(EvergreenTestCase):
     def test_udp_ping_pong(self):
         def connect():
             client = udp.UDPEndpoint()
-            client.send(b'PING', TEST_SERVER)
+            client.send(b'PING', TEST_UDP_ENDPOINT)
             data, addr = client.receive()
-            self.assertEqual(addr[1], TEST_SERVER[1])
             self.assertEqual(data, b'PING')
             client.close()
             self.assertRaises(udp.UDPError, client.receive)
