@@ -26,13 +26,9 @@ Running the test suite
 
 There are several ways of running the test suite:
 
-- Running individual tests:
-
-  Go inside the tests/ directory and run each individual test
-
 - Run the test with the current Python interpreter:
 
-  From the toplevel directory, run: ``nosetests -v -w tests/``
+  From the toplevel directory, run: ``nosetests -v``
 
 - Use Tox to run the test suite in several virtualenvs with several interpreters
 

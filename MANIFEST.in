@@ -1,5 +1,5 @@
 include MANIFEST.in README.rst AUTHORS LICENSE NOTICE requirements.txt ChangeLog
-include setup.py tox.ini
+include setup.cfg setup.py tox.ini
 recursive-include examples *
 recursive-include docs *
 recursive-include tests *
