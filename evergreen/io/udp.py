@@ -7,6 +7,7 @@ import pyuv
 import evergreen
 from evergreen.core.utils import Result
 from evergreen.io import errno
+from evergreen.log import log
 
 __all__ = ['UDPEndpoint', 'UDPError']
 
@@ -20,7 +21,6 @@ class UDPEndpoint(object):
         loop = evergreen.current.loop
         self._handle = pyuv.UDP(loop._loop)
         self._closed = False
-        self._send_result = Result()
         self._receive_result = Result()
 
     @property
@@ -34,9 +34,7 @@ class UDPEndpoint(object):
 
     def send(self, data, addr):
         self._check_closed()
-        with self._send_result:
-            self._handle.send(addr, data, self.__send_cb)
-            self._send_result.get()
+        self._handle.send(addr, data, self.__send_cb)
 
     def receive(self):
         self._check_closed()
@@ -56,9 +54,8 @@ class UDPEndpoint(object):
 
     def __send_cb(self, handle, error):
         if error is not None:
-            self._send_result.set_exception(UDPError(error, errno.strerror(error)))
-        else:
-            self._send_result.set_value(None)
+            log.debug('send failed: %d %s', error, pyuv.errno.strerror(error))
+            evergreen.current.loop.call_soon(self.close)
 
     def __receive_cb(self, handle, addr, flags, data, error):
         self._handle.stop_recv()
