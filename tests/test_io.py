@@ -28,6 +28,10 @@ class EchoMixin(object):
             if not data:
                 break
             connection.write(data)
+            connection.flush()
+            if connection.closed:
+                # Connection might have been closed after we flushed
+                break
 
 
 class EchoTCPServer(EchoMixin, tcp.TCPServer):

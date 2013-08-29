@@ -132,6 +132,13 @@ class BaseStream(AbstractBaseStream):
         super(BaseStream, self).__init__()
         self._read_result = Result()
         self._shutdown_result = Result()
+        self._pending_writes = 0
+        self._flush_event = Event()
+        self._flush_event.set()
+
+    def flush(self):
+        self._check_closed()
+        self._flush_event.wait()
 
     def _read(self, n):
         with self._read_result:
@@ -155,6 +162,9 @@ class BaseStream(AbstractBaseStream):
         except self.error_cls:
             self.close()
             raise
+        if self._pending_writes == 0:
+            self._flush_event.clear()
+        self._pending_writes += 1
         return self._handle.write_queue_size == 0
 
     def _shutdown(self):
@@ -173,6 +183,9 @@ class BaseStream(AbstractBaseStream):
             self._read_result.set_value(data)
 
     def __write_cb(self, handle, error):
+        self._pending_writes -= 1
+        if self._pending_writes == 0:
+            self._flush_event.set()
         if error is not None:
             log.debug('write failed: %d %s', error, pyuv.errno.strerror(error))
             evergreen.current.loop.call_soon(self.close)
