@@ -170,6 +170,7 @@ class IOTests(EvergreenTestCase):
             while True:
                 data, addr = self.server.receive()
                 self.server.send(data, addr)
+                self.server.flush()
         except udp.UDPError:
             pass
 
@@ -177,6 +178,7 @@ class IOTests(EvergreenTestCase):
         def connect():
             client = udp.UDPEndpoint()
             client.send(b'PING', TEST_UDP_ENDPOINT)
+            client.flush()
             data, addr = client.receive()
             self.assertEqual(data, b'PING')
             client.close()
