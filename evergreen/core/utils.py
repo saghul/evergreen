@@ -59,6 +59,7 @@ class Result(object):
             return self._value
         finally:
             self._used = True
+            self._exc = self._value = Null
 
     def set_value(self, value):
         assert self._locked
