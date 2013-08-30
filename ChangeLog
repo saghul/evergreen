@@ -1,3 +1,16 @@
+Version 0.2.0
+==============
+ - Revert "Don't allow futures to be used more than once"
+ - Break potential cycle because we are storing the traceback
+ - Fixed passing traceback when propagating exception to MAIN parent
+ - Process all callbacks using an Idle handle
+ - Replaced use of Future in io module for Result
+ - Don't wait for send operation to complete in UDPEndpoint
+ - Always run tests from the right directory
+ - Fix UDP test case on Windows
+ - Added flush() method to UDPEndpoint and Stream objects
+ - Cache sockname and peername properties
+
 Version 0.1.0
 ==============
  - Added initial UDP support
