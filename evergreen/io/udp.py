@@ -26,11 +26,14 @@ class UDPEndpoint(object):
         self._pending_writes = 0
         self._flush_event = Event()
         self._flush_event.set()
+        self._sockname = None
 
     @property
     def sockname(self):
         self._check_closed()
-        return self._handle.getsockname()
+        if self._sockname is None:
+            self._sockname = self._handle.getsockname()
+        return self._sockname
 
     def bind(self, addr):
         self._check_closed()

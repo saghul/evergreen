@@ -101,6 +101,8 @@ class IOTests(EvergreenTestCase):
         def connect():
             client = tcp.TCPClient()
             client.connect(TEST_CLIENT)
+            client.sockname    # for coverage
+            client.peername    # for coverage
             r = client.write(b'PING\n')
             self.assertTrue(r)
             data = client.read_until(b'\n')
@@ -170,6 +172,7 @@ class IOTests(EvergreenTestCase):
     def _start_udp_echo_server(self):
         self.server = udp.UDPEndpoint()
         self.server.bind(TEST_UDP_ENDPOINT)
+        self.server.sockname    # for coverage
         try:
             while True:
                 data, addr = self.server.receive()

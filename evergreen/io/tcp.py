@@ -23,16 +23,22 @@ class TCPStream(BaseStream):
     def __init__(self, handle):
         super(TCPStream, self).__init__()
         self._handle = handle
+        self._sockname = None
+        self._peername = None
 
     @property
     def sockname(self):
         self._check_closed()
-        return self._handle.getsockname()
+        if self._sockname is None:
+            self._sockname = self._handle.getsockname()
+        return self._sockname
 
     @property
     def peername(self):
         self._check_closed()
-        return self._handle.getpeername()
+        if self._peername is None:
+            self._peername = self._handle.getpeername()
+        return self._peername
 
 
 class TCPClient(TCPStream):
