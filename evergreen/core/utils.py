@@ -54,7 +54,7 @@ class Result(object):
                 if self._exc == self._value == Null:
                     self._cond.wait()
             if self._exc != Null:
-                raise exc
+                raise self._exc
             assert self._value != Null
             return self._value
         finally:
