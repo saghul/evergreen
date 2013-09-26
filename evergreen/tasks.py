@@ -2,9 +2,9 @@
 # This file is part of Evergreen. See the NOTICE for more information.
 #
 
-import evergreen
+import six
 
-from evergreen import six
+import evergreen
 from evergreen.event import Event
 
 from fibers import Fiber

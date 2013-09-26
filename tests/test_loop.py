@@ -5,7 +5,7 @@ import evergreen
 import signal
 import threading
 
-from evergreen.six.moves import queue
+from six.moves import queue
 
 
 class TLSTest(unittest.TestCase):

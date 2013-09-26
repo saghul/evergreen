@@ -9,7 +9,7 @@ import weakref
 import evergreen
 from evergreen.futures._base import Executor, Future, InfiniteHandler
 from evergreen.log import log
-from evergreen.six.moves import queue
+from six.moves import queue
 
 
 # Workers are created as daemon threads. This is done to allow the interpreter

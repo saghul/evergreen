@@ -14,8 +14,9 @@ try:
 except ImportError:
     from time import time as _time
 
+import six
+
 import evergreen
-from evergreen import six
 from evergreen.event import Event
 from evergreen.patcher import slurp_properties
 from evergreen.timeout import Timeout

@@ -1,3 +1,4 @@
 fibers>=0.1.0
 pyuv>=0.10.4
+six
 

@@ -5,9 +5,9 @@
 from __future__ import absolute_import
 
 import errno
+import six
 import sys
 
-from evergreen import six
 from evergreen.lib.socket import socket, _fileobject
 from evergreen.lib.socket import error as socket_error, timeout as socket_timeout
 from evergreen.patcher import slurp_properties

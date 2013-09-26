@@ -4,8 +4,9 @@
 
 from __future__ import absolute_import
 
+import six
+
 import evergreen
-from evergreen import six
 from evergreen.event import Event
 
 import select as __select__

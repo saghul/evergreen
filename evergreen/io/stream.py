@@ -5,10 +5,10 @@
 import abc
 import pyuv
 import re
+import six
 import socket
 
 import evergreen
-from evergreen import six
 from evergreen.core.utils import Result
 from evergreen.event import Event
 from evergreen.io import errno

@@ -50,7 +50,7 @@ import weakref
 
 import evergreen
 from evergreen.futures._base import Executor, Future, InfiniteHandler
-from evergreen.six.moves import queue
+from six.moves import queue
 
 
 __author__ = 'Brian Quinlan (brian@sweetapp.com)'

@@ -5,7 +5,7 @@
 import sys
 import os
 
-from evergreen import six
+import six
 
 
 class ExtensionImporter(object):

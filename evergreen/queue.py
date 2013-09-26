@@ -11,9 +11,9 @@ try:
     from time import monotonic as _time
 except ImportError:
     from time import time as _time
+from six.moves import queue as __queue__
 
 from evergreen.locks import Condition, Lock
-from evergreen.six.moves import queue as __queue__
 
 __all__ = ['Empty', 'Full', 'Queue', 'PriorityQueue', 'LifoQueue']
 

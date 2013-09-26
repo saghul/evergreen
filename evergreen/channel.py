@@ -2,7 +2,8 @@
 # This file is part of Evergreen. See the NOTICE for more information.
 #
 
-from evergreen import six
+import six
+
 from evergreen.event import Event
 from evergreen.locks import Lock
 
