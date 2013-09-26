@@ -175,7 +175,6 @@ class EventLoop(object):
         else:
             if poll_h.read_handler:
                 raise RuntimeError('another reader is already registered for fd {}'.format(fd))
-            poll_h.stop()
         poll_h.pevents |= pyuv.UV_READABLE
         poll_h.read_handler = handler
         poll_h.start(poll_h.pevents, self._poll_cb)
@@ -187,7 +186,6 @@ class EventLoop(object):
             return False
         else:
             handler = poll_h.read_handler
-            poll_h.stop()
             poll_h.pevents &= ~pyuv.UV_READABLE
             poll_h.read_handler = None
             if poll_h.pevents == 0:
@@ -210,7 +208,6 @@ class EventLoop(object):
         else:
             if poll_h.write_handler:
                 raise RuntimeError('another writer is already registered for fd {}'.format(fd))
-            poll_h.stop()
         poll_h.pevents |= pyuv.UV_WRITABLE
         poll_h.write_handler = handler
         poll_h.start(poll_h.pevents, self._poll_cb)
@@ -222,7 +219,6 @@ class EventLoop(object):
             return False
         else:
             handler = poll_h.write_handler
-            poll_h.stop()
             poll_h.pevents &= ~pyuv.UV_WRITABLE
             poll_h.write_handler = None
             if poll_h.pevents == 0:
@@ -429,7 +425,6 @@ class EventLoop(object):
 
         if not modified and old_events != poll_h.pevents:
             # Rearm the handle
-            poll_h.stop()
             poll_h.start(poll_h.pevents, self._poll_cb)
 
     def _install_signal_checker(self):
