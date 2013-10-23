@@ -326,19 +326,19 @@ class Future(object):
         with self._condition:
             return self._state in (CANCELLED, CANCELLED_AND_NOTIFIED, FINISHED)
 
-    def get(self, timeout=None):
+    def get(self, timeout=None, return_exception=False):
         with self._condition:
             if self._state in (CANCELLED, CANCELLED_AND_NOTIFIED):
                 raise CancelledError()
             elif self._state == FINISHED:
-                return self._get_result()
+                return self._get_result(return_exception)
 
             self._condition.wait(timeout)
 
             if self._state in (CANCELLED, CANCELLED_AND_NOTIFIED):
                 raise CancelledError()
             elif self._state == FINISHED:
-                return self._get_result()
+                return self._get_result(return_exception)
             else:
                 raise TimeoutError()
 
@@ -351,9 +351,12 @@ class Future(object):
 
     # Internal
 
-    def _get_result(self):
+    def _get_result(self, return_exception):
         if self._exception:
-            raise self._exception
+            if return_exception:
+                return self._exception
+            else:
+                raise self._exception
         else:
             return self._result
 

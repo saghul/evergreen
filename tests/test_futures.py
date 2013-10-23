@@ -34,6 +34,17 @@ class FuturesTests(EvergreenTestCase):
         evergreen.spawn(waiter)
         self.loop.run()
 
+    def test_taskpool_executor_return_exception(self):
+        executor = futures.TaskPoolExecutor(10)
+        def func():
+            1/0
+        def waiter():
+            f = executor.submit(func)
+            e = f.get(return_exception=True)
+            self.assertTrue(isinstance(e, ZeroDivisionError))
+        evergreen.spawn(waiter)
+        self.loop.run()
+
     def test_threadpool_executor(self):
         executor = futures.ThreadPoolExecutor(5)
         def func():
