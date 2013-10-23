@@ -20,6 +20,7 @@ except ImportError:
 
 from collections import deque
 from fibers import Fiber
+from functools import partial
 
 from evergreen.core.socketpair import SocketPair
 from evergreen.core.threadpool import ThreadPool
@@ -30,36 +31,24 @@ __all__ = ['EventLoop']
 _tls = threading.local()
 
 
-class Handler(object):
-    __slots__ = ('_callback', '_args', '_kwargs', '_cancelled')
+class Handler(partial):
 
-    def __init__(self, callback, args=(), kwargs={}):
-        assert not isinstance(callback, Handler)
-        self._callback = callback
-        self._args = args
-        self._kwargs = kwargs
-        self._cancelled = False
+    def __new__(cls, func, *args, **kw):
+        assert not isinstance(func, Handler)
+        obj = partial.__new__(cls, func, *args, **kw)
+        obj._cancelled = False
+        return obj
 
     def cancel(self):
         self._cancelled = True
 
-    def _run(self):
-        self._callback(*self._args, **self._kwargs)
-
-    def __repr__(self):
-        res = '{}({}, {}, {})'.format(self.__class__.__name__, self._callback, self._args, self._kwargs)
-        if self._cancelled:
-            res += ' <cancelled>'
-        return res
-
 
 class Timer(Handler):
-    __slots__ = ('_timer_h')
 
-    def __init__(self, callback, args=(), kwargs={}, timer=None):
-        assert timer is not None
-        super(Timer, self).__init__(callback, args, kwargs)
-        self._timer_h = timer
+    def __new__(cls, handle, func, *args, **kw):
+        obj = Handler.__new__(cls, func, *args, **kw)
+        obj._timer_h = handle
+        return obj
 
     def cancel(self):
         super(Timer, self).cancel()
@@ -71,12 +60,11 @@ class Timer(Handler):
 
 
 class SignalHandler(Handler):
-    __slots__ = ('_signal_h')
 
-    def __init__(self, callback, args=(), kwargs={}, signal_h=None):
-        assert signal_h is not None
-        super(SignalHandler, self).__init__(callback, args, kwargs)
-        self._signal_h = signal_h
+    def __new__(cls, handle, func, *args, **kw):
+        obj = Handler.__new__(cls, func, *args, **kw)
+        obj._signal_h = handle
+        return obj
 
     def cancel(self):
         super(SignalHandler, self).cancel()
@@ -135,12 +123,12 @@ class EventLoop(object):
         return self._running
 
     def call_soon(self, callback, *args, **kw):
-        handler = Handler(callback, args, kw)
+        handler = Handler(callback, *args, **kw)
         self._add_callback(handler)
         return handler
 
     def call_from_thread(self, callback, *args, **kw):
-        handler = Handler(callback, args, kw)
+        handler = Handler(callback, *args, **kw)
         # Here we don't call self._add_callback on purpose, because it's not thread
         # safe to start pyuv handles. We just append the callback to the queue and
         # wakeup the loop. This is thread safe because the queue is only processed
@@ -152,11 +140,11 @@ class EventLoop(object):
     def call_later(self, delay, callback, *args, **kw):
         if delay <= 0:
             return self.call_soon(callback, *args, **kw)
-        timer = pyuv.Timer(self._loop)
-        handler = Timer(callback, args, kw, timer)
-        timer.handler = handler
-        timer.start(self._timer_cb, delay, 0)
-        self._timers.add(timer)
+        timer_h = pyuv.Timer(self._loop)
+        handler = Timer(timer_h, callback, *args, **kw)
+        timer_h.handler = handler
+        timer_h.start(self._timer_cb, delay, 0)
+        self._timers.add(timer_h)
         return handler
 
     def call_at(self, when, callback, *args, **kw):
@@ -166,7 +154,7 @@ class EventLoop(object):
         return _time()
 
     def add_reader(self, fd, callback, *args, **kw):
-        handler = Handler(callback, args, kw)
+        handler = Handler(callback, *args, **kw)
         try:
             poll_h = self._fd_map[fd]
         except KeyError:
@@ -199,7 +187,7 @@ class EventLoop(object):
             return False
 
     def add_writer(self, fd, callback, *args, **kw):
-        handler = Handler(callback, args, kw)
+        handler = Handler(callback, *args, **kw)
         try:
             poll_h = self._fd_map[fd]
         except KeyError:
@@ -234,7 +222,7 @@ class EventLoop(object):
     def add_signal_handler(self, sig, callback, *args, **kwargs):
         self._validate_signal(sig)
         signal_h = pyuv.Signal(self._loop)
-        handler = SignalHandler(callback, args, kwargs, signal_h)
+        handler = SignalHandler(signal_h, callback, *args, **kwargs)
         signal_h.handler = handler
         signal_h.signum = sig
         try:
@@ -365,7 +353,7 @@ class EventLoop(object):
             handler = self._ready.popleft()
             if not handler._cancelled:
                 # loop.excepthook takes care of exception handling
-                handler._run()
+                handler()
         if not self._ready:
             self._ready_processor.stop()
 
