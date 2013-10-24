@@ -52,6 +52,24 @@ class LocksTests(EvergreenTestCase):
         evergreen.spawn(func2)
         self.loop.run()
 
+    def test_barrier(self):
+        num_tasks = 10
+        d = dummy()
+        d.count = 0
+        barrier = locks.Barrier(num_tasks+1, timeout=1)
+        def func():
+            evergreen.sleep(0.01)
+            d.count += 1
+            barrier.wait()
+        def runner():
+            for x in range(num_tasks):
+                evergreen.spawn(func)
+            barrier.wait()
+        evergreen.spawn(runner)
+        self.loop.run()
+        self.assertEqual(d.count, num_tasks)
+        self.assertEqual(barrier.parties, num_tasks+1)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
