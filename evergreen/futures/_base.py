@@ -7,6 +7,7 @@ import evergreen
 from evergreen.event import Event
 from evergreen.locks import Condition, Lock
 from evergreen.log import log
+from evergreen.timeout import Timeout
 
 
 FIRST_COMPLETED = 'FIRST_COMPLETED'
@@ -193,40 +194,31 @@ def as_completed(fs, timeout=None):
         TimeoutError: If the entire result iterator could not be generated
             before the given timeout.
     """
-    loop = evergreen.current.loop
-
-    if timeout is not None:
-        end_time = timeout + loop.time()
-
     with _AcquireFutures(fs):
         finished = set(f for f in fs if f._state in [CANCELLED_AND_NOTIFIED, FINISHED])
         pending = set(fs) - finished
         waiter = _create_and_install_waiters(fs, _AS_COMPLETED)
 
+    timer = Timeout(timeout)
+    timer.start()
     try:
         for future in finished:
             yield future
-
         while pending:
-            if timeout is None:
-                wait_timeout = None
-            else:
-                wait_timeout = end_time - loop.time()
-                if wait_timeout < 0:
-                    raise TimeoutError('%d (of %d) futures unfinished' % (len(pending), len(fs)))
-
-            waiter.event.wait(wait_timeout)
-
+            waiter.event.wait()
             with waiter.lock:
                 finished = waiter.finished_futures
                 waiter.finished_futures = []
                 waiter.event.clear()
-
             for future in finished:
                 yield future
                 pending.remove(future)
-
+    except Timeout as e:
+        if timer is not e:
+            raise
+        raise TimeoutError('%d (of %d) futures unfinished' % (len(pending), len(fs)))
     finally:
+        timer.cancel()
         for f in fs:
             f._waiters.remove(waiter)
 
