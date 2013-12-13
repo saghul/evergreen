@@ -189,14 +189,12 @@ class Condition(object):
     def notify(self, n=1):
         if not self._is_owned():
             raise RuntimeError('cannot wait on un-acquired lock')
-        __waiters = self._waiters
-        waiters = __waiters[:n]
-        if not waiters:
-            return
+        _waiters = self._waiters
+        waiters = _waiters[:n]
         for waiter in waiters:
             waiter.release()
             try:
-                __waiters.remove(waiter)
+                _waiters.remove(waiter)
             except ValueError:
                 pass
 
