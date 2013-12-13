@@ -248,7 +248,7 @@ class EventLoop(object):
 
     def switch(self):
         if not self._started:
-            self._run(forever=False)
+            self.run()
             return
         current = Fiber.current()
         assert current is not self.task, 'Cannot switch to MAIN from MAIN'
