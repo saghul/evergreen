@@ -158,6 +158,18 @@ class FuturesTests(EvergreenTestCase):
         evergreen.spawn(waiter)
         self.loop.run()
 
+    def test_future_as_completed_timeout(self):
+        executor = futures.TaskPoolExecutor(10)
+        def func():
+            evergreen.sleep(0.1)
+            return 42
+        def get_results(lst):
+            return list(futures.as_completed(lst, timeout=0.01))
+        def waiter():
+            self.assertRaises(futures.TimeoutError, get_results, [executor.submit(func)])
+        evergreen.spawn(waiter)
+        self.loop.run()
+
     def test_map(self):
         executor = futures.TaskPoolExecutor(10)
         def func(x):
