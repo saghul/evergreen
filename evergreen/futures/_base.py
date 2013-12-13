@@ -2,10 +2,7 @@
 # This file is part of Evergreen. See the NOTICE for more information.
 #
 
-try:
-    from time import monotonic as _time
-except ImportError:
-    from time import time as _time
+import evergreen
 
 from evergreen.event import Event
 from evergreen.locks import Condition, Lock
@@ -196,8 +193,10 @@ def as_completed(fs, timeout=None):
         TimeoutError: If the entire result iterator could not be generated
             before the given timeout.
     """
+    loop = evergreen.current.loop
+
     if timeout is not None:
-        end_time = timeout + _time()
+        end_time = timeout + loop.time()
 
     with _AcquireFutures(fs):
         finished = set(f for f in fs if f._state in [CANCELLED_AND_NOTIFIED, FINISHED])
@@ -212,7 +211,7 @@ def as_completed(fs, timeout=None):
             if timeout is None:
                 wait_timeout = None
             else:
-                wait_timeout = end_time - _time()
+                wait_timeout = end_time - loop.time()
                 if wait_timeout < 0:
                     raise TimeoutError('%d (of %d) futures unfinished' % (len(pending), len(fs)))
 
@@ -433,9 +432,11 @@ class Executor(object):
                 before the given timeout.
             Exception: If fn(*args) raises for any values.
         """
+        loop = evergreen.current.loop
+
         timeout = kwargs.get('timeout')
         if timeout is not None:
-            end_time = timeout + _time()
+            end_time = timeout + loop.time()
 
         fs = [self.submit(fn, *args) for args in zip(*iterables)]
 
@@ -447,7 +448,7 @@ class Executor(object):
                     if timeout is None:
                         yield future.get()
                     else:
-                        yield future.get(end_time - _time())
+                        yield future.get(end_time - loop.time())
             finally:
                 for future in fs:
                     future.cancel()
