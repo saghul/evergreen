@@ -9,14 +9,9 @@ import _socket
 import sys
 import warnings
 
-try:
-    from time import monotonic as _time
-except ImportError:
-    from time import time as _time
-
 import six
-
 import evergreen
+
 from evergreen.event import Event
 from evergreen.patcher import slurp_properties
 from evergreen.timeout import Timeout
@@ -399,16 +394,16 @@ class socket(object):
             while data_sent < len(data):
                 data_sent += self.send(_get_memory(data, data_sent), flags)
         else:
-            timeleft = self.timeout
-            end = _time() + timeleft
-            data_sent = 0
-            while True:
-                data_sent += self.send(_get_memory(data, data_sent), flags, timeout=timeleft)
-                if data_sent >= len(data):
-                    break
-                timeleft = end - _time()
-                if timeleft <= 0:
-                    raise timeout('timed out')
+            timer = Timeout(self.timeout, timeout('timed out'))
+            timer.start()
+            try:
+                data_sent = 0
+                while True:
+                    data_sent += self.send(_get_memory(data, data_sent), flags)
+                    if data_sent >= len(data):
+                        break
+            finally:
+                timer.cancel()
 
     def sendto(self, *args):
         sock = self._sock
