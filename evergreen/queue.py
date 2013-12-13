@@ -7,10 +7,6 @@ from __future__ import absolute_import
 import heapq
 
 from collections import deque
-try:
-    from time import monotonic as _time
-except ImportError:
-    from time import time as _time
 from six.moves import queue as __queue__
 
 from evergreen.locks import Condition, Lock
@@ -147,12 +143,10 @@ class Queue(object):
                 elif timeout < 0:
                     raise ValueError("'timeout' must be a positive number")
                 else:
-                    endtime = _time() + timeout
-                    while self._qsize() >= self.maxsize:
-                        remaining = endtime - _time()
-                        if remaining <= 0.0:
+                    if self._qsize() >= self.maxsize:
+                        self.not_full.wait(timeout)
+                        if self._qsize() >= self.maxsize:
                             raise Full
-                        self.not_full.wait(remaining)
             self._put(item)
             self.unfinished_tasks += 1
             self.not_empty.notify()
@@ -189,12 +183,10 @@ class Queue(object):
             elif timeout < 0:
                 raise ValueError("'timeout' must be a positive number")
             else:
-                endtime = _time() + timeout
-                while not self._qsize():
-                    remaining = endtime - _time()
-                    if remaining <= 0.0:
+                if not self._qsize():
+                    self.not_empty.wait(timeout)
+                    if not self._qsize():
                         raise Empty
-                    self.not_empty.wait(remaining)
             item = self._get()
             self.not_full.notify()
             return item
