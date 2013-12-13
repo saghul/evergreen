@@ -2,11 +2,6 @@
 # This file is part of Evergreen. See the NOTICE for more information.
 #
 
-try:
-    from time import monotonic as _time
-except ImportError:
-    from time import time as _time
-
 import evergreen
 from evergreen.timeout import Timeout
 
@@ -174,14 +169,7 @@ class Condition(object):
         endtime = None
         waittime = timeout
         result = predicate()
-        while not result:
-            if waittime is not None:
-                if endtime is None:
-                    endtime = _time() + waittime
-                else:
-                    waittime = endtime - _time()
-                    if waittime <= 0:
-                        break
+        if not result:
             self.wait(waittime)
             result = predicate()
         return result
