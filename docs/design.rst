@@ -57,7 +57,7 @@ The cooperative task abstraction provided by evergreen (through the :class:`Task
 The public API for this class mimics that of a `threading.Thread` thread, but it's
 scheduled cooperatively.
 
-Tasks are implemented using the `fibers <https://github.com/saghul/python-fibers>`_ library. In the
+Tasks are implemented using the `fibers <https://github.com/saghul/python-fibers>`_ library.
 
 Here are some 'rules' that apply to tasks:
 
