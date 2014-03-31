@@ -418,7 +418,7 @@ class EventLoop(object):
     def _install_signal_checker(self):
         self._socketpair = SocketPair()
         self._signal_checker = None
-        if hasattr(signal, 'set_wakeup_fd') and os.name == 'posix':
+        if hasattr(signal, 'set_wakeup_fd'):
             try:
                 old_wakeup_fd = signal.set_wakeup_fd(self._socketpair.writer_fileno())
                 if old_wakeup_fd != -1:
