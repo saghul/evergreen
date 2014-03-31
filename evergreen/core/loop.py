@@ -363,11 +363,11 @@ class EventLoop(object):
 
     def _timer_cb(self, timer):
         assert not timer.handler._cancelled
+        assert not timer.repeat
         self._add_callback(timer.handler)
-        if not timer.repeat:
-            timer.close()
-            self._timers.remove(timer)
-            del timer.handler
+        timer.close()
+        self._timers.remove(timer)
+        del timer.handler
 
     def _signal_cb(self, signal_h, signum):
         self._add_callback(signal_h.handler)
